@@ -74,9 +74,11 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
   .smallgrid div{padding:6px 3px}
   .smallgrid b{font-size:11px}
   button{min-height:44px;padding:10px 10px}
-  .nav{padding-bottom:max(6px,calc(env(safe-area-inset-bottom) + 3px))}
+  .nav{padding-bottom:max(2px,env(safe-area-inset-bottom));margin-bottom:0}
   .sheet{max-height:92dvh;padding:13px}
 }
+</style><style id="fight-zone-ui">
+.zone{font-size:9px;text-align:left;margin:4px 0}.zone span{display:flex;justify-content:space-between;gap:8px}.zone i{display:block;height:4px;background:#30343a;border-radius:4px;overflow:hidden}.zone em{display:block;height:100%;background:#c9a44b}.fightbox .corner{min-width:0}
 </style></head>
 <body>
 <div class="app">
@@ -139,7 +141,8 @@ function genFighter(forceName,weight,style,base,countryOverride){
  let generatedName=pool.first[rand(0,pool.first.length-1)]+" "+pool.last[rand(0,pool.last.length-1)];
  let b=base??rand(55,78);
  let f={id:"F"+Date.now()+Math.random(),name:forceName||generatedName,country:country[0],flag:country[1],age:ageBand(),weight:weight||choice(WEIGHTS),style:style||choice(STYLES),wins:0,losses:0,draws:0,
- str:clamp(b+rand(-9,9)),wrest:clamp(b+rand(-9,9)),grap:clamp(b+rand(-9,9)),def:clamp(b+rand(-9,9)),cardio:clamp(b+rand(-8,10)),power:clamp(b+rand(-8,10)),chin:clamp(b+rand(-8,8)),speed:clamp(b+rand(-8,9)),morale:rand(62,88),fatigue:rand(0,10),form:rand(68,86),injury:null,money:0,contract:null,nextFight:null,campWeek:0,campSchedule:{},history:[],lastFightDay:0,rating:0,rank:0,p4p:0,popularity:rand(8,35),potential:rand(68,94),campPreference:null,teamMorale:rand(60,85),title:null,careerStage:"Prospect",weightChangeCooldown:0,worldNextFightDay:0};
+ str:clamp(b+rand(-9,9)),wrest:clamp(b+rand(-9,9)),grap:clamp(b+rand(-9,9)),def:clamp(b+rand(-9,9)),cardio:clamp(b+rand(-8,10)),power:clamp(b+rand(-8,10)),chin:clamp(b+rand(-8,8)),speed:clamp(b+rand(-8,9)),
+handPower:clamp(b+rand(-8,10)),legPower:clamp(b+rand(-8,10)),handSpeed:clamp(b+rand(-8,10)),legSpeed:clamp(b+rand(-8,10)),takedown:clamp(b+rand(-8,10)),movement:clamp(b+rand(-8,10)),morale:rand(62,88),fatigue:rand(0,10),form:rand(68,86),injury:null,money:0,contract:null,nextFight:null,campWeek:0,campSchedule:{},history:[],lastFightDay:0,rating:0,rank:0,p4p:0,popularity:rand(8,35),potential:rand(68,94),campPreference:null,teamMorale:rand(60,85),title:null,careerStage:"Prospect",weightChangeCooldown:0,worldNextFightDay:0};
  if(f.style==="Striker"){f.str=clamp(f.str+7);f.speed=clamp(f.speed+5);f.power=clamp(f.power+5);f.wrest=clamp(f.wrest-4)}
  if(f.style==="Wrestler"){f.wrest=clamp(f.wrest+8);f.grap=clamp(f.grap+4);f.str=clamp(f.str-3)}
  if(f.style==="Grappler"){f.grap=clamp(f.grap+9);f.wrest=clamp(f.wrest+4);f.speed=clamp(f.speed-3)}
@@ -411,7 +414,9 @@ function normalizeSave(){
      if(pool.first.includes(first)&&pool.last.includes(last))bad=false;
      if(bad)f.name=choice(pool.first)+" "+choice(pool.last);
    }
-   if(f.popularity==null)f.popularity=20;if(f.potential==null)f.potential=80;if(f.rating==null)f.rating=ovr(f);if(!f.history)f.history=[];if(f.winsByKO==null)realisticHistoryFor(f);
+   if(f.popularity==null)f.popularity=20;if(f.potential==null)f.potential=80;
+   f.handPower=f.handPower??f.power;f.legPower=f.legPower??f.power;f.handSpeed=f.handSpeed??f.speed;f.legSpeed=f.legSpeed??f.speed;f.takedown=f.takedown??f.wrest;f.movement=f.movement??f.speed;
+   if(f.rating==null)f.rating=ovr(f);if(!f.history)f.history=[];if(f.winsByKO==null)realisticHistoryFor(f);
    if(!f.worldNextFightDay)f.worldNextFightDay=s.day+rand(21,90);
    if(f.org==="DWCS")f.org=randomWorldOrg(f).name;
  });
@@ -443,14 +448,14 @@ function home(){
 let f=currentF(),next=f?.nextFight;
 let upcoming=s.fighters.filter(x=>x.nextFight).sort((a,b)=>a.nextFight.date-b.nextFight.date).slice(0,4);
 document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">MANAGER DASHBOARD</div><div class="hero"><div class="avatar">👔</div><div class="hero-main"><h2>${s.manager||"Менеджер"}</h2><div class="muted">${managerReputationText()}</div></div><div class="ovr">${s.managerRating}</div></div><div class="smallgrid"><div><small>Рейтинг</small><b>${s.managerRating}</b></div><div><small>Популярность</small><b>${s.managerPopularity}</b></div><div><small>Рекорд</small><b>${s.managerRecord.wins}-${s.managerRecord.losses}-${s.managerRecord.draws}</b></div><div><small>Репутация</small><b>${s.rep}</b></div></div></section>
-<section class="panel"><div class="section-head"><h3>Ближайшие события</h3><button data-page="calendar">Календарь</button></div>${upcoming.map((x)=>`<div class="row"><span><b>${x.flag||"🌍"} ${x.name}</b><br><span class="muted">${x.nextFight.event||x.nextFight.org} • vs ${x.nextFight.opponent.name}</span></span><span class="gold">${Math.max(0,x.nextFight.date-s.day)}д</span><button data-campfighter="${x.id}">Лагерь</button></div>`).join("")||`<div class="muted">Нет назначенных боёв. Открой ростер и организуй первый бой.</div>`}</section>
+<section class="panel"><div class="section-head"><h3>Ближайшие события</h3><button data-page="calendar">Календарь</button></div>${upcoming.map((x)=>{let left=Math.max(0,x.nextFight.date-s.day);return `<div class="event" style="margin-bottom:8px"><div class="section-head"><b>${x.nextFight.event||x.nextFight.org}</b><span class="gold">${left===0?"СЕГОДНЯ":"через "+left+" дн."}</span></div><div><b>${x.name} vs ${x.nextFight.opponent.name}</b></div><div class="muted">${x.nextFight.org} • ${dateLabel(x.nextFight.date)} • ${x.nextFight.venue||"Арена"} • ${x.nextFight.card||"MAIN CARD"} • $${Number(x.nextFight.purse||0).toLocaleString("ru-RU")}</div><div class="actions"><button data-campfighter="${x.id}">Лагерь</button><button data-select="${s.fighters.indexOf(x)}">Профиль</button></div></div>`}).join("")||`<div class="muted">Нет назначенных боёв. Открой ростер и организуй первый бой.</div>`}</section>
 <section class="panel"><div class="section-head"><h3>Команда</h3><span>${s.fighters.length}/12</span></div><div class="grid2">${s.fighters.slice(0,6).map((x,i)=>`<button data-select="${i}" style="text-align:left"><b>${x.flag||"🌍"} ${x.name}</b><br><span class="muted">${x.weight} • ${rec(x)}</span><br><span class="gold">OVR ${ovr(x)}</span></button>`).join("")}</div><div class="actions"><button data-page="roster">Весь ростер</button><button data-act="market">Рынок бойцов</button></div></section>
 <section class="panel"><div class="section-head"><h3>Последние новости</h3><span>Мир MMA</span></div>${s.news.slice(0,5).map(n=>`<div class="event"><b>${n.title}</b><div class="muted">${n.text}</div></div>`).join("")||`<div class="muted">Мировые новости появятся после первых событий.</div>`}</section>
 <section class="panel"><div class="actions"><button class="primary" data-page="rankings">🏆 Рейтинги</button><button data-page="league">🏟️ Лиги</button><button data-page="news">📰 Новости</button><button data-page="roster">🥊 Бои</button></div></section>`;
 bind()
 }
 function roster(){
-document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">ROSTER MANAGEMENT</div><div class="section-head"><h2 class="title" style="margin:4px 0">Моя команда</h2><span>${s.fighters.length}/12</span></div><div class="muted">Выбирай бойца, чтобы открыть полное досье. Свободных бойцов ищи на рынке.</div></section><div class="list">${s.fighters.map((f,i)=>`<div class="fighter" data-select="${i}" title="Открыть профиль"><div class="fighter-top"><div class="avatar">${emoji(f.style)}</div><div class="fighter-info"><div class="fighter-name">${f.name}</div><div class="fighter-sub">${f.weight} • ${f.style}</div><div class="tags"><span class="record-badge">${rec(f)}</span><span class="tag">#${getPos(f)}</span><span class="tag">${f.contract?.org||"без контракта"}</span>${f.nextFight?`<span class="tag">БОЙ ДЕНЬ ${f.nextFight.date}</span>`:""}</div></div><div class="score">${ovr(f)}</div></div><div class="smallgrid"><div><small>Мораль</small><b>${f.morale}</b></div><div><small>Форма</small><b>${f.form}</b></div><div><small>Усталость</small><b>${f.fatigue}</b></div><div><small>Возраст</small><b>${f.age}</b></div></div><div class="actions"><button data-open-profile="${i}">Профиль</button>${f.nextFight?`<button data-act="fight">Бой</button>`:`<button class="primary" data-fighter-match="${i}">Организовать бой</button>`}</div></div>`).join("")}</div><section class="panel"><div class="actions"><button class="primary" data-act="market">Рынок бойцов</button><button data-act="create">Создать бойца</button></div></section>`;bind()}
+document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">ROSTER MANAGEMENT</div><div class="section-head"><h2 class="title" style="margin:4px 0">Моя команда</h2><span>${s.fighters.length}/12</span></div><div class="muted">Выбирай бойца, чтобы открыть полное досье. Свободных бойцов ищи на рынке.</div></section><div class="list">${s.fighters.map((f,i)=>`<div class="fighter" data-select="${i}" title="Открыть профиль"><div class="fighter-top"><div class="avatar">${emoji(f.style)}</div><div class="fighter-info"><div class="fighter-name">${f.name}</div><div class="fighter-sub">${f.weight} • ${f.style}</div><div class="tags"><span class="record-badge">${rec(f)}</span><span class="tag">#${getPos(f)}</span><span class="tag">${f.contract?.org||"без контракта"}</span>${f.nextFight?`<span class="tag">БОЙ ${dateLabel(f.nextFight.date)}</span><span class="tag">${f.nextFight.org}</span>`:""}</div></div><div class="score">${ovr(f)}</div></div><div class="smallgrid"><div><small>Мораль</small><b>${f.morale}</b></div><div><small>Форма</small><b>${f.form}</b></div><div><small>Усталость</small><b>${f.fatigue}</b></div><div><small>Возраст</small><b>${f.age}</b></div></div><div class="actions"><button data-open-profile="${i}">Профиль</button>${f.nextFight?`<button data-act="fight">Бой</button>`:`<button class="primary" data-fighter-match="${i}">Организовать бой</button>`}</div></div>`).join("")}</div><section class="panel"><div class="actions"><button class="primary" data-act="market">Рынок бойцов</button><button data-act="create">Создать бойца</button></div></section>`;bind()}
 function rankingRows(arr,limit=15){
  return arr.slice(0,limit).map((r,i)=>{let f=findById(r.id);return `<div class="rankline" data-profile-rank="${r.id}" role="button"><div class="ranknum ${i<3?"top":""}">${i+1}</div><div><b>${f?.flag||"🌍"} ${r.name}</b><div class="muted">${f?.country||""} • ${f?.org||"Свободный агент"} • ${f?.weight||""} • ${f?rec(f):""}</div></div><b class="gold">${r.score}</b><button data-profile-rank-btn="${r.id}">Профиль</button></div>`}).join("");
 }
@@ -495,10 +500,12 @@ function calendar(){
  document.querySelector("[data-calweek]").onclick=advanceWorldWeek;
 }
 function advanceWorldWeek(){
- let nearest=Infinity;
- s.fighters.forEach(f=>{if(f.nextFight)nearest=Math.min(nearest,f.nextFight.date)});
- let step=7;if(nearest<s.day+step)step=Math.max(1,nearest-s.day);
-advanceWorld(step);
+ let fights=s.fighters.filter(f=>f.nextFight).map(f=>f.nextFight.date).filter(d=>Number.isFinite(d));
+ if(!fights.length){advanceWorld(7);return}
+ let nearest=Math.min(...fights);
+ let step=Math.min(7,Math.max(0,nearest-s.day));
+ if(step<=0){showDueFights();return}
+ advanceWorld(step);
 }
 function simulateAIFight(f,o,org){
  let fav=(ovr(f)+f.form*.15+f.cardio*.1),dog=(ovr(o)+o.form*.15+o.cardio*.1),win=Math.random()<fav/(fav+dog);
@@ -585,7 +592,13 @@ function showDueFights(){
  return true;
 }
 function advanceWorld(step){
- if(step<=0){toast("Сегодня уже день боя");return}
+ step=Math.max(0,Math.floor(step||0));
+ let playerDates=s.fighters.filter(f=>f.nextFight).map(f=>f.nextFight.date).filter(d=>d>s.day);
+ if(playerDates.length){
+   let nearest=Math.min(...playerDates);
+   step=Math.min(step,nearest-s.day);
+ }
+ if(step<=0){showDueFights();return}
  let endDay=s.day+step;
  while(s.day<endDay){
   s.day++;
@@ -810,82 +823,128 @@ document.getElementById("studyOpp").onclick=()=>profile(o,"prefight");
 document.getElementById("startFight").onclick=()=>simulateFight(f,n);
 }
 function simulateFight(f,n){
-let o=n.opponent;
-let totalRounds=Number(n.rounds)||3;
-let a={hp:100,energy:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[]};
-let b={hp:100,energy:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[]};
-let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="";
-document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${totalRounds} РАУНДОВ</div>
-<div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b><div id="ha" class="hp">HP 100</div><div class="progress"><i id="ba" style="width:100%"></i></div></div><div><div class="round">РАУНД</div><div id="rn" class="clock">1 / ${totalRounds}</div><div id="tm" class="clock">5:00</div></div><div class="corner"><div class="face">${emoji(o.style)}</div><b>${o.name}</b><div id="hb" class="hp">HP 100</div><div class="progress"><i id="bb" style="width:100%"></i></div></div></div></div>
-<div class="actions"><button data-sp="1" class="primary">1×</button><button data-sp="3">3×</button><button data-sp="5">5×</button><button data-sp="10">10×</button><button data-sp="20">20×</button></div><div class="muted" id="speedText" style="text-align:center;margin-top:5px">Скорость: 1×</div>
-<div class="live-log"><div id="live" class="live-log-text">РАУНД 1. Бойцы начинают осторожно...</div></div>
-<section class="panel" style="margin-top:8px"><div class="section-head"><h3>Счёт раундов</h3><span id="scoreRounds">—</span></div><div class="grid4"><div class="stat"><small>Удары</small><b id="stSig">0 : 0</b></div><div class="stat"><small>ТД</small><b id="stTd">0 : 0</b></div><div class="stat"><small>Саб</small><b id="stSub">0 : 0</b></div><div class="stat"><small>Общий счёт</small><b id="stScore">0 : 0</b></div></div></section>
-<div class="sheet-actions"><button id="stopFight" class="red">Выйти</button></div>`;
-function setLive(x){document.getElementById("live").textContent=x}
-function event(){
- let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/300;
- let t=Math.random();
- if(t<.62){
-   if(Math.random()+edge*.25>.5){let d=rand(1,4)+Math.max(0,Math.round((f.power-70)/25));b.hp-=d;a.score+=d;a.roundScore+=d;a.sig++;setLive(`${f.name} попадает серией — ${d} урона`)}
-   else{let d=rand(1,3);a.hp-=d;b.score+=d;b.roundScore+=d;b.sig++;setLive(`${o.name} отвечает точным ударом`)}
- }else if(t<.84){
-   if(Math.random()+(f.wrest-o.wrest)/220>.48){let d=rand(1,4);b.hp-=d;a.score+=d;a.roundScore+=d;a.td++;setLive(`${f.name} переводит бой в партер`)}
-   else if(Math.random()+(o.wrest-f.wrest)/220>.48){let d=rand(1,4);a.hp-=d;b.score+=d;b.roundScore+=d;b.td++;setLive(`${o.name} забирает тейкдаун`)}
-   else setLive("Борьба у сетки, оба сохраняют позицию")
- }else{
-   if(Math.random()+(f.grap-o.grap)/230>.62&&Math.random()<.18){let d=rand(3,7);b.hp-=d;a.score+=d;a.roundScore+=d;a.sub++;finishReason="Submission";setLive(`${f.name} выходит на приём!`)}
-   else setLive("Плотный размен в партере")
+ let o=n.opponent,totalRounds=Number(n.rounds)||3;
+ let a={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
+ let b={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
+ let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null;
+
+ document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${totalRounds} РАУНДОВ</div>
+ <div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b>
+ <div class="zone"><span>ГОЛОВА <b id="ah">100</b></span><i><em id="ahb" style="width:100%"></em></i></div>
+ <div class="zone"><span>КОРПУС <b id="ab">100</b></span><i><em id="abb" style="width:100%"></em></i></div>
+ <div class="zone"><span>НОГИ <b id="al">100</b></span><i><em id="alb" style="width:100%"></em></i></div>
+ <div class="hp">СТАМИНА <b id="as">100</b></div><div class="progress"><i id="asb" style="width:100%"></i></div></div>
+ <div><div class="round">РАУНД</div><div id="rn" class="clock">1 / ${totalRounds}</div><div id="tm" class="clock">5:00</div></div>
+ <div class="corner"><div class="face">${emoji(o.style)}</div><b>${o.name}</b>
+ <div class="zone"><span>ГОЛОВА <b id="bh">100</b></span><i><em id="bhb" style="width:100%"></em></i></div>
+ <div class="zone"><span>КОРПУС <b id="bb">100</b></span><i><em id="bbb" style="width:100%"></em></i></div>
+ <div class="zone"><span>НОГИ <b id="bl">100</b></span><i><em id="blb" style="width:100%"></em></i></div>
+ <div class="hp">СТАМИНА <b id="bs">100</b></div><div class="progress"><i id="bsb" style="width:100%"></i></div></div></div></div>
+ <div class="actions"><button data-sp="1" class="primary">1×</button><button data-sp="3">3×</button><button data-sp="5">5×</button><button data-sp="10">10×</button><button data-sp="20">20×</button></div>
+ <div class="muted" id="speedText" style="text-align:center;margin-top:5px">Скорость: 1× • 1 раунд = 5:00</div>
+ <div class="live-log"><div id="live" class="live-log-text">РАУНД 1. Бойцы начинают осторожно...</div></div>
+ <section class="panel" style="margin-top:8px"><div class="section-head"><h3>Статистика</h3><span id="scoreRounds">0 : 0</span></div>
+ <div class="grid4"><div class="stat"><small>Удары</small><b id="stSig">0 : 0</b></div><div class="stat"><small>ТД</small><b id="stTd">0 : 0</b></div><div class="stat"><small>Саб</small><b id="stSub">0 : 0</b></div><div class="stat"><small>Общий счёт</small><b id="stScore">0 : 0</b></div></div></section>
+ <div class="sheet-actions"><button id="stopFight" class="red">Выйти</button></div>`;
+
+ function setLive(x){let el=document.getElementById("live");if(el)el.textContent=x}
+ function hit(att,def,attF){
+   let zone=Math.random(),dmg=0,label="";
+   let hand=(attF.handPower||attF.power||70),leg=(attF.legPower||attF.power||70);
+   let accuracy=((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220;
+   if(zone<.45){dmg=rand(2,6)+Math.round((hand-65)/30);def.head-=dmg;label="в голову"}
+   else if(zone<.75){dmg=rand(2,5)+Math.round((hand-65)/35);def.body-=dmg;label="в корпус"}
+   else{dmg=rand(2,5)+Math.round((leg-65)/35);def.legs-=dmg;label="по ногам"}
+   dmg=Math.max(1,dmg);att.score+=dmg;att.roundScore+=dmg;att.sig++;
+   return label;
  }
- a.energy=Math.max(0,a.energy-rand(1,3));b.energy=Math.max(0,b.energy-rand(1,3));
-}
-function roundEnd(){
- let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";
- a.rounds.push(winner);b.rounds.push(winner==="A"?"B":winner==="B"?"A":"X");
- a.roundScore=0;b.roundScore=0;a.energy=Math.min(100,a.energy+22);b.energy=Math.min(100,b.energy+22);
- let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
- document.getElementById("scoreRounds").textContent=`${aw} : ${bw}`;
- setLive(winner==="X"?`Раунд ${round} — близкий, судьи могут отдать его любому`:`Раунд ${round} — ${winner==="A"?f.name:o.name}`);
- if(round>=totalRounds){finish();return}
- round++;roundTime=300;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;setTimeout(()=>setLive(`РАУНД ${round}. Бой продолжается...`),250);
-}
-function finish(){
- running=false;cancelAnimationFrame(raf);
- let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
- let win,method,scoreText;
- if(b.hp<=5&&finishReason==="Submission"){win=true;method="Submission";scoreText="Финиш"}
- else if(b.hp<=4&&Math.random()<.28){win=true;method="KO/TKO";scoreText="Финиш"}
- else if(a.hp<=4&&Math.random()<.28){win=false;method="KO/TKO";scoreText="Финиш"}
- else {if(aw>bw){win=true;method="Decision"}else if(bw>aw){win=false;method="Decision"}else{win=a.score>=b.score;method="Split Decision"}scoreText=`${aw}–${bw}`}
- f.lastFightDay=s.day;f.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"W":"L",opponent:o.name,method,round:finishRoundFor(n,method),org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});if(f.history.length>12)f.history.length=12;
- if(win){f.wins++;addWinMethod(f,method);if(f.title){f.titleDefenses=(f.titleDefenses||0)+1}f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true)}
- else{f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false)}
- f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
- o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishRoundFor(n,method),org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});if(win)o.losses++;else o.wins++;o.rating=(o.rating||ovr(o))+(win?-3:4);
- if(o.popularity==null)o.popularity=20;o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
- logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreText})`:""}.`);
-if(Math.abs(ovr(f)-ovr(o))<=3){s.rivalries=s.rivalries||[];s.rivalries.unshift({a:f.name,b:o.name,heat:rand(20,70)});s.rivalries=s.rivalries.slice(0,10)}
-if(win&&f.popularity>=65)logNews(`${f.name} набирает популярность после победы и становится кандидатом на более крупный бой.`);
- updateRankings();save();
- document.getElementById("live").innerHTML=`<b>${win?"ПОБЕДА":"ПОРАЖЕНИЕ"} — ${method}</b><br>${method==="Decision"||method==="Split Decision"?"Счёт раундов: "+scoreText:"Финиш"}<br>Удары ${a.sig}:${b.sig} • ТД ${a.td}:${b.td} • сабмишны ${a.sub}:${b.sub}`;
- document.getElementById("stopFight").textContent="Продолжить";document.getElementById("stopFight").className="primary";document.getElementById("stopFight").onclick=()=>{closeModal();page("home")}
-}
-function frame(now){
- if(!running)return;
- let dt=Math.min(.25,(now-last)/1000);last=now;simTime+=dt*speed;roundTime-=dt*speed;
- // At high speed simulate discrete events but do NOT let the browser frame cadence determine round length.
- let ticks=Math.floor(simTime);if(ticks>0){simTime-=ticks;for(let i=0;i<Math.min(ticks,12);i++)event()}
- if(a.hp<=0||b.hp<=0){finish();return}
- if(roundTime<=0){roundEnd();if(!running)return}
- let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
- document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
- document.getElementById("ha").textContent=`HP ${Math.max(0,Math.round(a.hp))}`;document.getElementById("hb").textContent=`HP ${Math.max(0,Math.round(b.hp))}`;
- document.getElementById("ba").style.width=Math.max(0,a.hp)+"%";document.getElementById("bb").style.width=Math.max(0,b.hp)+"%";
- document.getElementById("stSig").textContent=`${a.sig} : ${b.sig}`;document.getElementById("stTd").textContent=`${a.td} : ${b.td}`;document.getElementById("stSub").textContent=`${a.sub} : ${b.sub}`;document.getElementById("stScore").textContent=`${a.score} : ${b.score}`;
+ function event(){
+   let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500;
+   let t=Math.random();
+   if(t<.62){
+     if(Math.random()+edge*.35>.5){let label=hit(a,b,f);setLive(`${f.name} точно попадает ${label}`)}
+     else{let label=hit(b,a,o);setLive(`${o.name} отвечает ${label}`)}
+   }else if(t<.84){
+     let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;
+     if(Math.random()+tdEdge>.52){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}
+     else if(Math.random()-tdEdge>.48){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}
+     else setLive("Клинч у сетки — борьба за позицию")
+   }else{
+     let gEdge=((f.grap||70)-(o.grap||70))/180;
+     if(Math.random()+gEdge>.72 && Math.min(a.stamina,b.stamina)<48 && Math.random()<.12){
+       finishReason="Submission";finishRound=round;
+       setLive(`${f.name} выходит на приём!`);
+     }else setLive("Партер: работа за позицию и контроль");
+   }
+   a.stamina=Math.max(0,a.stamina-rand(1,3));b.stamina=Math.max(0,b.stamina-rand(1,3));
+ }
+ function roundEnd(){
+   let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";
+   a.rounds.push(winner);b.rounds.push(winner==="A"?"B":winner==="B"?"A":"X");
+   a.roundScore=0;b.roundScore=0;
+   a.stamina=Math.min(100,a.stamina+25);b.stamina=Math.min(100,b.stamina+25);
+   let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
+   document.getElementById("scoreRounds").textContent=`${aw} : ${bw}`;
+   setLive(winner==="X"?`Раунд ${round} — близкий, возможен split`:`Раунд ${round} — ${winner==="A"?f.name:o.name}`);
+   if(round>=totalRounds){finish();return}
+   round++;roundTime=300;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
+   setTimeout(()=>setLive(`РАУНД ${round}. Бой продолжается...`),250);
+ }
+ function finish(){
+   running=false;cancelAnimationFrame(raf);
+   let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
+   let win,method,scoreText,finishR=finishRound||round;
+   let zoneKO=b.head<=0||b.body<=0||b.legs<=0;
+   let zoneKO2=a.head<=0||a.body<=0||a.legs<=0;
+   if(finishReason==="Submission"){win=true;method="Submission";scoreText="Финиш"}
+   else if(zoneKO||zoneKO2){
+     win=zoneKO&&!zoneKO2;method="KO/TKO";scoreText="Финиш"
+   }else{
+     // Decision only after ALL scheduled rounds. No premature decision.
+     if(aw>bw){win=true;method="Decision";scoreText=`${aw}–${bw}`}
+     else if(bw>aw){win=false;method="Decision";scoreText=`${aw}–${bw}`}
+     else{
+       let totalA=a.score,totalB=b.score;
+       win=totalA>=totalB;
+       method="Split Decision";
+       scoreText=`${aw}–${bw} (${totalA}–${totalB} по активности)`
+     }
+   }
+   f.lastFightDay=s.day;
+   f.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"W":"L",opponent:o.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
+   if(f.history.length>12)f.history.length=12;
+   if(win){f.wins++;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true)}
+   else{f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false)}
+   f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
+   o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
+   if(win)o.losses++;else o.wins++;o.rating=(o.rating||ovr(o))+(win?-3:4);
+   o.popularity=o.popularity??20;o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
+   logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreText})`:""}.`);
+   updateRankings();save();
+   document.getElementById("live").innerHTML=`<b>${win?"ПОБЕДА":"ПОРАЖЕНИЕ"} — ${method}</b><br>${method==="Decision"||method==="Split Decision"?"Счёт: "+scoreText:"Финиш"}<br>Раунд: ${finishR} • Удары ${a.sig}:${b.sig} • ТД ${a.td}:${b.td}`;
+   document.getElementById("stopFight").textContent="Продолжить";document.getElementById("stopFight").className="primary";document.getElementById("stopFight").onclick=()=>{closeModal();page("home")}
+ }
+ function frame(now){
+   if(!running)return;
+   let dt=Math.min(.25,(now-last)/1000);last=now;simTime+=dt*speed;roundTime-=dt*speed;
+   let ticks=Math.floor(simTime);
+   if(ticks>0){simTime-=ticks;for(let i=0;i<Math.min(ticks,12);i++)event()}
+   if(finishReason){finish();return}
+   if(a.head<=0||a.body<=0||a.legs<=0||b.head<=0||b.body<=0||b.legs<=0){finish();return}
+   if(roundTime<=0){roundEnd();if(!running)return}
+   let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
+   document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
+   [["ah",a.head],["ab",a.body],["al",a.legs],["bh",b.head],["bb",b.body],["bl",b.legs],["as",a.stamina],["bs",b.stamina]].forEach(([id,v])=>{let e=document.getElementById(id);if(e)e.textContent=Math.max(0,Math.round(v))});
+   [["ahb",a.head],["abb",a.body],["alb",a.legs],["bhb",b.head],["bbb",b.body],["blb",b.legs],["asb",a.stamina],["bsb",b.stamina]].forEach(([id,v])=>{let e=document.getElementById(id);if(e)e.style.width=Math.max(0,v)+"%"});
+   document.getElementById("stSig").textContent=`${a.sig} : ${b.sig}`;document.getElementById("stTd").textContent=`${a.td} : ${b.td}`;document.getElementById("stSub").textContent=`${a.sub} : ${b.sub}`;
+   document.getElementById("stScore").textContent=`${a.score} : ${b.score}`;
+   raf=requestAnimationFrame(frame)
+ }
+ document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`Скорость: ${speed}× • ${speed===10?"около 30 сек":speed===20?"около 15 сек":"1 раунд ≈ "+Math.round(300/speed)+" сек"}`});
+ document.getElementById("stopFight").onclick=()=>{running=false;cancelAnimationFrame(raf);closeModal()};
  raf=requestAnimationFrame(frame)
 }
-document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`Скорость: ${speed}×`});
-document.getElementById("stopFight").onclick=()=>{running=false;cancelAnimationFrame(raf);closeModal()};raf=requestAnimationFrame(frame)
-}
+
 function logNews(text,type="NEWS"){s.news.unshift({title:type==="CARD"?"КАРД":type==="RANKINGS"?"РЕЙТИНГИ":type==="DWCS"?"DWCS":type==="TRANSFER"?"ПЕРЕХОДЫ":"НОВОСТИ",text,day:s.day});s.news=s.news.slice(0,30)}
 function notify(text){logNews(text);toast(text)}
 function updateManagerMetrics(win){
