@@ -384,7 +384,7 @@ function findById(id){return allPool().find(f=>f.id===id)}
 function renderTop(){
  let d=new Date(2026,0,1);d.setDate(d.getDate()+(s.day||1)-1);
  let dateText=d.toLocaleDateString("ru-RU",{day:"numeric",month:"long",year:"numeric"});
- document.getElementById("topDate").textContent=s.setup?`${dateText} • День ${s.day}`:"Новая карьера";
+ document.getElementById("topDate").textContent=s.setup?`${dateText} • День ${s.day} • V5.1`:"Новая карьера";
  document.getElementById("topMoney").textContent=s.setup?`$${Number(s.money||0).toLocaleString("ru-RU")}`:"";
  document.getElementById("topRep").textContent=s.setup?`REP ${s.rep||0}`:"";
  document.getElementById("topMgr").textContent=s.setup?`MGR ${s.managerRating||50}`:"";
@@ -396,6 +396,7 @@ function renderTop(){
 }
 function normalizeSave(){
  s.managerRecord=s.managerRecord||{wins:s.managerWins||0,losses:s.managerLosses||0,draws:0};
+ s.fighters?.forEach(f=>{if(f.contract&&!f.contract.org){f.contract.org="LFA";f.contract.fightsLeft=f.contract.fightsLeft??f.contract.length??3}});
  s.staff=s.staff||{headCoach:50,strikingCoach:50,wrestlingCoach:50,sportsScience:50,cutman:50};
  s.titles=s.titles||{};s.rivalries=s.rivalries||[];s.injuryReserve=s.injuryReserve||[];s.pressScore=s.pressScore||0;
  s.managerRating=s.managerRating||50;s.managerPopularity=s.managerPopularity||8;s.marketPool=s.marketPool||null;s.marketRefresh=s.marketRefresh||0;
@@ -639,56 +640,51 @@ function market(){
 function negotiate(f){
  if(!f)return;
  let fit=fighterAffordability(f);
- let orgs=ORGS.filter(o=>o.name!=="DWCS"&&s.rep>=o.unlock).sort((a,b)=>a.level-b.level);
- let org=orgs[0]||ORGS.find(o=>o.name==="LFA")||ORGS[0];
- let base=contractTerms(f,org);
- let minSalary=Math.max(300,Math.round(base.salary*.65));
- let maxSalary=Math.round(base.salary*1.55);
- let lengths=[1,3,4];
- let selectedLen=3;
+ let orgs=ORGS.filter(o=>o.name!=="DWCS"&&s.rep>=o.unlock&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name))).sort((a,b)=>a.level-b.level);
+ if(!orgs.length){toast("Для этого бойца пока нет доступной лиги");return}
+ let selectedOrg=orgs[0],selectedLen=3;
+ const lengths=[1,3,4];
+ function renderTerms(){
+   let base=contractTerms(f,selectedOrg);
+   let minSalary=Math.max(300,Math.round(base.salary*.65)),maxSalary=Math.round(base.salary*1.55);
+   document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ • КОНТРАКТ ЛИГИ</div>
+   <div class="title">${f.flag||"🌍"} ${f.name}</div>
+   <div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div>
+   <section class="panel"><div class="row"><span>Твой рейтинг менеджера</span><b>${s.managerRating}</b></div>
+   <div class="row"><span>Требуемый уровень</span><b>${fit.required}</b></div>
+   <div class="row"><span>Шанс договориться</span><b>${fit.chance}%</b></div>
+   ${fit.legend?`<div class="notice-strip">Этот боец практически не рассматривает смену менеджмента.</div>`:""}</section>
+   <section class="panel"><div class="section-head"><h3>Лига</h3><span>выбери сам</span></div>
+   <div class="actions">${orgs.map(o=>`<button data-org="${o.name}" class="${o.name===selectedOrg.name?"primary":""}">${o.short} <span class="muted">REP ${o.unlock}</span></button>`).join("")}</div>
+   <div class="muted" style="margin-top:8px">${selectedOrg.name} • уровень ${selectedOrg.level}/10 • доступный гонорар зависит от OVR бойца.</div></section>
+   <section class="panel"><div class="section-head"><h3>Условия</h3><span>${selectedOrg.name}</span></div>
+   <div class="actions three">${lengths.map(x=>`<button data-len="${x}" class="${x===selectedLen?"primary":""}">${x} ${x===1?"бой":"боя"}</button>`).join("")}</div>
+   <div style="margin-top:10px"><label class="muted">Гонорар за бой, $</label><input id="offerSalary" class="input" type="number" min="${minSalary}" max="${maxSalary}" value="${base.salary}"></div>
+   <div class="notice-strip" style="margin-top:8px">Рынок: $${minSalary.toLocaleString("ru-RU")} — $${maxSalary.toLocaleString("ru-RU")} за бой. Чем выше лига и статус бойца, тем выше требования.</div></section>
+   <div class="sheet-actions"><button data-cancel-neg>Отмена</button><button class="primary" data-offer>Предложить контракт</button></div>`;
+   document.querySelector("[data-cancel-neg]").onclick=closeModal;
+   document.querySelectorAll("[data-org]").forEach(btn=>btn.onclick=()=>{selectedOrg=orgs.find(o=>o.name===btn.dataset.org)||selectedOrg;renderTerms()});
+   document.querySelectorAll("[data-len]").forEach(btn=>btn.onclick=()=>{selectedLen=+btn.dataset.len;renderTerms()});
+   document.querySelector("[data-offer]").onclick=()=>{
+     let salary=Math.max(minSalary,Math.min(maxSalary,Number(document.getElementById("offerSalary").value)||base.salary));
+     let salaryFactor=1-Math.abs(salary-base.salary)/(Math.max(1,base.salary)*1.5);
+     let leagueFit=Math.max(0,Math.min(1,(s.rep-selectedOrg.unlock+25)/45));
+     let lenBonus=selectedLen===1?8:selectedLen===4?-4:2;
+     let chance=Math.round(Math.max(0,Math.min(98,fit.chance*.5+salaryFactor*30+leagueFit*20+lenBonus)));
+     if(fit.legend)chance=Math.min(chance,5);
+     if(Math.random()*100<chance){
+       signFighter(f,{org:selectedOrg,salary,length:selectedLen,signing:base.signing});
+     }else{
+       document.getElementById("sheet").innerHTML=`<div class="eyebrow">ОТВЕТ ЛИГИ / БОЙЦА</div><div class="title">Предложение отклонено</div>
+       <section class="panel"><div class="notice-strip">Условия ${selectedOrg.name} не устроили стороны.</div><div class="row"><span>Предложение</span><b>${selectedLen} боя • $${salary.toLocaleString("ru-RU")}/бой</b></div></section>
+       <div class="sheet-actions"><button data-close>Закрыть</button><button class="primary" data-counter>Торговаться</button></div>`;
+       document.querySelector("[data-close]").onclick=closeModal;
+       document.querySelector("[data-counter]").onclick=()=>negotiate(f);
+     }
+   };
+ }
  document.getElementById("modal").classList.add("open");
- document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ • КОНТРАКТ</div>
- <div class="title">${f.flag||"🌍"} ${f.name}</div>
- <div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div>
- <section class="panel">
-  <div class="row"><span>Твой рейтинг менеджера</span><b>${s.managerRating}</b></div>
-  <div class="row"><span>Требуемый уровень</span><b>${fit.required}</b></div>
-  <div class="row"><span>Шанс переговоров</span><b>${fit.chance}%</b></div>
-  ${fit.legend?`<div class="notice-strip">Этот боец практически не рассматривает смену менеджмента.</div>`:""}
- </section>
- <section class="panel">
-  <div class="section-head"><h3>Предложение</h3><span>${org.name}</span></div>
-  <div class="muted">Ты сам определяешь длину контракта и предлагаешь гонорар. Слишком низкая зарплата повышает шанс отказа.</div>
-  <div class="actions three" style="margin-top:9px">
-   ${lengths.map(x=>`<button data-len="${x}" class="${x===3?"primary":""}">${x} ${x===1?"бой":"боя"}</button>`).join("")}
-  </div>
-  <div style="margin-top:10px"><label class="muted">Гонорар за бой, $</label><input id="offerSalary" class="input" type="number" min="${minSalary}" max="${maxSalary}" value="${base.salary}"></div>
-  <div class="notice-strip" style="margin-top:8px">Рынок: $${minSalary.toLocaleString("ru-RU")} — $${maxSalary.toLocaleString("ru-RU")} за бой.</div>
- </section>
- <div class="sheet-actions"><button data-cancel-neg>Отмена</button><button class="primary" data-offer>Сделать предложение</button></div>`;
- document.querySelector("[data-cancel-neg]").onclick=closeModal;
- document.querySelectorAll("[data-len]").forEach(btn=>btn.onclick=()=>{
-   selectedLen=+btn.dataset.len;
-   document.querySelectorAll("[data-len]").forEach(x=>x.classList.remove("primary"));
-   btn.classList.add("primary");
- });
- document.querySelector("[data-offer]").onclick=()=>{
-   let salary=Math.max(minSalary,Math.min(maxSalary,Number(document.getElementById("offerSalary").value)||base.salary));
-   let salaryFactor=1-Math.abs(salary-base.salary)/(Math.max(1,base.salary)*1.5);
-   let lenBonus=selectedLen===1?8:selectedLen===4?-4:2;
-   let chance=Math.round(Math.max(0,Math.min(98,fit.chance*.55+salaryFactor*45+lenBonus)));
-   if(fit.legend)chance=Math.min(chance,5);
-   if(Math.random()*100<chance){
-      signFighter(f,{org,salary,length:selectedLen,signing:base.signing});
-   }else{
-      document.getElementById("sheet").innerHTML=`<div class="eyebrow">ОТВЕТ БОЙЦА</div><div class="title">${f.name}</div>
-      <section class="panel"><div class="notice-strip">«Я не принимаю эти условия. Давай обсудим другую зарплату или длину контракта.»</div>
-      <div class="row"><span>Твоё предложение</span><b>${selectedLen} ${selectedLen===1?"бой":"боя"} • $${salary.toLocaleString("ru-RU")}</b></div></section>
-      <div class="sheet-actions"><button data-close>Закрыть</button><button class="primary" data-counter>Торговаться</button></div>`;
-      document.querySelector("[data-close]").onclick=closeModal;
-      document.querySelector("[data-counter]").onclick=()=>negotiate(f);
-   }
- };
+ renderTerms();
 }
 function signFighter(f,negotiated=null){
  if(!f)return;
@@ -737,11 +733,20 @@ function matchmake(){
  let f=currentF();if(!f){toast("Выбери бойца");return}
  if(!f.contract){toast("Сначала подпиши контракт");return}
  if(f.nextFight){toast("У бойца уже есть назначенный бой");return}
- let m=managerInfluence(), orgs=ORGS.filter(o=>s.rep>=o.unlock&&o.name!=="DWCS"&&o.level<=Math.max(1,m.leagueAccess)&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name)));
- if(!orgs.length)orgs=[ORGS.find(o=>o.name==="LFA")||ORGS[0]];
- let opps=s.world.filter(x=>x.weight===f.weight&&!x.contract).map(x=>({f:x,delta:Math.abs(ovr(x)-ovr(f))})).sort((a,b)=>a.delta-b.delta).slice(0,12).map(x=>x.f);
- let candidates=opps.slice(0,8).map(o=>{let org=choice(orgs),rounds=org.level>=9?5:3,date=s.day+rand(21,35),terms=contractTerms(f,org),event=choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99);return {opponent:o,org:org.name,rounds,date,purse:terms.purse,rank:getPos(o),event}});
- document.getElementById("modal").classList.add("open");document.getElementById("sheet").innerHTML=`<div class="eyebrow">MATCHMAKING</div><h2>Выбор соперника</h2><div class="muted">${f.flag||"🌍"} ${f.name} • ${f.weight} • OVR ${ovr(f)}</div><div class="list" style="margin-top:11px">${candidates.map((c,i)=>`<div class="scout"><div class="fighter-top"><div class="scout-face">${emoji(c.opponent.style)}</div><div class="fighter-info"><div class="fighter-name">${c.opponent.flag||"🌍"} ${c.opponent.name}</div><div class="fighter-sub">${c.opponent.country} • ${c.opponent.style} • ${rec(c.opponent)} • #${c.rank}</div></div><div class="score">${ovr(c.opponent)}</div></div><div class="tags"><span class="tag">${c.event}</span><span class="tag">${c.org}</span><span class="tag">${c.rounds} раундов</span><span class="tag">День ${c.date}</span><span class="tag">+$${c.purse}</span></div><div class="scout-actions"><button data-mmprofile="${i}">Профиль</button><button class="primary" data-accept="${i}">Принять бой</button></div></div>`).join("")}</div><div class="sheet-actions"><button data-close>Отмена</button></div>`;
+ let org=ORGS.find(o=>o.name===f.contract.org);
+ if(!org){toast("У бойца нет действующего контракта с лигой");return}
+ if(isTopLeague(org.name)&&!topLeagueEligible(f,org.name)){toast(`${org.name} не допускает такого бойца в текущий ростер`);return}
+ let opps=s.world.filter(x=>x.weight===f.weight&&!x.contract&&x.org===org.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)))
+   .map(x=>({f:x,delta:Math.abs(ovr(x)-ovr(f))})).sort((a,b)=>a.delta-b.delta).slice(0,16).map(x=>x.f);
+ if(!opps.length){toast(`В ${org.name} сейчас нет подходящих соперников`);return}
+ let candidates=opps.slice(0,8).map(o=>{
+   let rounds=org.level>=9?5:3,date=s.day+rand(21,35),terms=contractTerms(f,org),event=choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99);
+   let diff=Math.abs(ovr(o)-ovr(f));
+   let ranked=getPos(o)<=15&&getPos(f)<=30;
+   let type=ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОБЫЧНЫЙ БОЙ";
+   return {opponent:o,org:org.name,rounds,date,purse:terms.purse,rank:getPos(o),event,type,ranked};
+ });
+ document.getElementById("modal").classList.add("open");document.getElementById("sheet").innerHTML=`<div class="eyebrow">MATCHMAKING</div><h2>Выбор соперника</h2><div class="muted">${f.flag||"🌍"} ${f.name} • ${f.weight} • OVR ${ovr(f)}</div><div class="list" style="margin-top:11px">${candidates.map((c,i)=>`<div class="scout"><div class="fighter-top"><div class="scout-face">${emoji(c.opponent.style)}</div><div class="fighter-info"><div class="fighter-name">${c.opponent.flag||"🌍"} ${c.opponent.name}</div><div class="fighter-sub">${c.opponent.country} • ${c.opponent.style} • ${rec(c.opponent)} • #${c.rank}</div></div><div class="score">${ovr(c.opponent)}</div></div><div class="tags"><span class="tag">${c.event}</span><span class="tag">${c.org}</span><span class="tag">${c.type}</span><span class="tag">${c.rounds} раундов</span><span class="tag">День ${c.date}</span><span class="tag">+$${c.purse}</span></div><div class="scout-actions"><button data-mmprofile="${i}">Профиль</button><button class="primary" data-accept="${i}">Принять бой</button></div></div>`).join("")}</div><div class="sheet-actions"><button data-close>Отмена</button></div>`;
  document.querySelectorAll("[data-mmprofile]").forEach(b=>b.onclick=()=>profile(candidates[+b.dataset.mmprofile].opponent,"match"));
  document.querySelectorAll("[data-accept]").forEach(b=>b.onclick=()=>{
  let c=candidates[+b.dataset.accept];
@@ -764,7 +769,7 @@ function matchmake(){
    document.querySelector("[data-counter-fight]").onclick=()=>{closeModal();matchmake()};
    return;
   }
-  f.nextFight={opponent:{...c.opponent},org:c.org,event:c.event,rounds:c.rounds,date:c.date,purse,rank:c.rank,venue:choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Las Vegas","New York","Riyadh Arena"]),card:c.rounds===5?"MAIN EVENT":choice(["PRELIMS","MAIN CARD","CO-MAIN EVENT"])};
+  f.nextFight={opponent:{...c.opponent},org:c.org,event:c.event,rounds:c.rounds,date:c.date,purse,rank:c.rank,ranked:!!c.ranked,type:c.type,venue:choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Las Vegas","New York","Riyadh Arena"]),card:c.rounds===5?"MAIN EVENT":choice(["PRELIMS","MAIN CARD","CO-MAIN EVENT"])};
   f.campWeek=1;f.campSchedule={};logNews(`${f.name} получил бой с ${c.opponent.name} в ${c.org}. Гонорар: $${purse.toLocaleString("ru-RU")}.`);
   save();closeModal();page("home");toast("Бой согласован");
  };
@@ -828,7 +833,7 @@ function simulateFight(f,n){
  let b={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
  let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null;
 
- document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${totalRounds} РАУНДОВ</div>
+ document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${n.ranked?"РЕЙТИНГОВЫЙ БОЙ • ":""}${totalRounds} РАУНДОВ</div>
  <div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b>
  <div class="zone"><span>ГОЛОВА <b id="ah">100</b></span><i><em id="ahb" style="width:100%"></em></i></div>
  <div class="zone"><span>КОРПУС <b id="ab">100</b></span><i><em id="abb" style="width:100%"></em></i></div>
@@ -852,9 +857,9 @@ function simulateFight(f,n){
    let zone=Math.random(),dmg=0,label="";
    let hand=(attF.handPower||attF.power||70),leg=(attF.legPower||attF.power||70);
    let accuracy=((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220;
-   if(zone<.45){dmg=rand(2,6)+Math.round((hand-65)/30);def.head-=dmg;label="в голову"}
-   else if(zone<.75){dmg=rand(2,5)+Math.round((hand-65)/35);def.body-=dmg;label="в корпус"}
-   else{dmg=rand(2,5)+Math.round((leg-65)/35);def.legs-=dmg;label="по ногам"}
+   if(zone<.45){dmg=rand(1,3)+Math.max(0,Math.round((hand-78)/40));def.head-=dmg;label="в голову"}
+   else if(zone<.75){dmg=rand(1,2)+Math.max(0,Math.round((hand-82)/45));def.body-=dmg;label="в корпус"}
+   else{dmg=rand(1,2)+Math.max(0,Math.round((leg-82)/45));def.legs-=dmg;label="по ногам"}
    dmg=Math.max(1,dmg);att.score+=dmg;att.roundScore+=dmg;att.sig++;
    return label;
  }
@@ -894,8 +899,8 @@ function simulateFight(f,n){
    running=false;cancelAnimationFrame(raf);
    let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
    let win,method,scoreText,finishR=finishRound||round;
-   let zoneKO=b.head<=0||b.body<=0||b.legs<=0;
-   let zoneKO2=a.head<=0||a.body<=0||a.legs<=0;
+   let zoneKO=b.head<=8;
+   let zoneKO2=a.head<=8;
    if(finishReason==="Submission"){win=true;method="Submission";scoreText="Финиш"}
    else if(zoneKO||zoneKO2){
      win=zoneKO&&!zoneKO2;method="KO/TKO";scoreText="Финиш"
@@ -915,7 +920,14 @@ function simulateFight(f,n){
    if(f.history.length>12)f.history.length=12;
    if(win){f.wins++;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true)}
    else{f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false)}
-   f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
+   if(f.contract){
+   f.contract.fightsLeft=Math.max(0,(f.contract.fightsLeft??f.contract.length??1)-1);
+   if(f.contract.fightsLeft===0){
+     logNews(`${f.name} завершил контракт с ${f.contract.org}.`);
+     f.contract=null;
+   }
+ }
+ f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
    o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
    if(win)o.losses++;else o.wins++;o.rating=(o.rating||ovr(o))+(win?-3:4);
    o.popularity=o.popularity??20;o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
@@ -926,11 +938,11 @@ function simulateFight(f,n){
  }
  function frame(now){
    if(!running)return;
-   let dt=Math.min(.25,(now-last)/1000);last=now;simTime+=dt*speed;roundTime-=dt*speed;
-   let ticks=Math.floor(simTime);
-   if(ticks>0){simTime-=ticks;for(let i=0;i<Math.min(ticks,12);i++)event()}
+   let dt=Math.min(.25,(now-last)/1000);last=now;let effectiveSpeed=speed===20?30:speed;simTime+=dt*effectiveSpeed;roundTime-=dt*effectiveSpeed;
+   let ticks=Math.floor(simTime/4);
+   if(ticks>0){simTime-=ticks*4;for(let i=0;i<Math.min(ticks,3);i++)event()}
    if(finishReason){finish();return}
-   if(a.head<=0||a.body<=0||a.legs<=0||b.head<=0||b.body<=0||b.legs<=0){finish();return}
+   if(a.head<=0||b.head<=0){finish();return}
    if(roundTime<=0){roundEnd();if(!running)return}
    let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
    document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
@@ -940,7 +952,7 @@ function simulateFight(f,n){
    document.getElementById("stScore").textContent=`${a.score} : ${b.score}`;
    raf=requestAnimationFrame(frame)
  }
- document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`Скорость: ${speed}× • ${speed===10?"около 30 сек":speed===20?"около 15 сек":"1 раунд ≈ "+Math.round(300/speed)+" сек"}`});
+ document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`Скорость: ${speed}× • ${speed===10?"около 30 сек":speed===20?"около 10 сек":"1 раунд ≈ "+Math.round(300/speed)+" сек"}`});
  document.getElementById("stopFight").onclick=()=>{running=false;cancelAnimationFrame(raf);closeModal()};
  raf=requestAnimationFrame(frame)
 }
