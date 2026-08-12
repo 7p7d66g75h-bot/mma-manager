@@ -640,79 +640,56 @@ function market(){
 function negotiate(f){
  if(!f)return;
  let fit=fighterAffordability(f);
- let orgs=ORGS.filter(o=>o.name!=="DWCS"&&(s.managerRating||30)>=o.unlock&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name))).sort((a,b)=>a.level-b.level);
- if(!orgs.length){
-   orgs=ORGS.filter(o=>o.name!=="DWCS"&&o.level<=6&&o.unlock<=30).sort((a,b)=>a.level-b.level);
- }
- if(!orgs.length){toast("Для этого бойца пока нет доступной лиги");return}
- let selectedOrg=orgs[0],selectedLen=3;
- const lengths=[1,3,4];
- function renderTerms(){
-   let base=contractTerms(f,selectedOrg);
-   let minSalary=Math.max(300,Math.round(base.salary*.65)),maxSalary=Math.round(base.salary*1.55);
-   document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ • КОНТРАКТ ЛИГИ</div>
-   <div class="title">${f.flag||"🌍"} ${f.name}</div>
-   <div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div>
-   <section class="panel"><div class="row"><span>Твой рейтинг менеджера</span><b>${s.managerRating}</b></div>
-   <div class="row"><span>Требуемый уровень</span><b>${fit.required}</b></div>
-   <div class="row"><span>Шанс договориться</span><b>${fit.chance}%</b></div>
-   ${fit.legend?`<div class="notice-strip">Этот боец практически не рассматривает смену менеджмента.</div>`:""}</section>
-   <section class="panel"><div class="section-head"><h3>Лига</h3><span>выбери сам</span></div>
-   <div class="actions">${orgs.map(o=>`<button data-org="${o.name}" class="${o.name===selectedOrg.name?"primary":""}">${o.short} <span class="muted">REP ${o.unlock}</span></button>`).join("")}</div>
-   <div class="muted" style="margin-top:8px">${selectedOrg.name} • уровень ${selectedOrg.level}/10 • доступно при рейтинге менеджера ${selectedOrg.unlock}+ • доступный гонорар зависит от OVR бойца.</div></section>
-   <section class="panel"><div class="section-head"><h3>Условия</h3><span>${selectedOrg.name}</span></div>
-   <div class="actions three">${lengths.map(x=>`<button data-len="${x}" class="${x===selectedLen?"primary":""}">${x} ${x===1?"бой":"боя"}</button>`).join("")}</div>
-   <div style="margin-top:10px"><label class="muted">Гонорар за бой, $</label><input id="offerSalary" class="input" type="number" min="${minSalary}" max="${maxSalary}" value="${base.salary}"></div>
-   <div class="notice-strip" style="margin-top:8px">Рынок: $${minSalary.toLocaleString("ru-RU")} — $${maxSalary.toLocaleString("ru-RU")} за бой. Чем выше лига и статус бойца, тем выше требования.</div></section>
-   <div class="sheet-actions"><button data-cancel-neg>Отмена</button><button class="primary" data-offer>Предложить контракт</button></div>`;
-   document.querySelector("[data-cancel-neg]").onclick=closeModal;
-   document.querySelectorAll("[data-org]").forEach(btn=>btn.onclick=()=>{selectedOrg=orgs.find(o=>o.name===btn.dataset.org)||selectedOrg;renderTerms()});
-   document.querySelectorAll("[data-len]").forEach(btn=>btn.onclick=()=>{selectedLen=+btn.dataset.len;renderTerms()});
-   document.querySelector("[data-offer]").onclick=()=>{
-     let salary=Math.max(minSalary,Math.min(maxSalary,Number(document.getElementById("offerSalary").value)||base.salary));
-     let salaryFactor=1-Math.abs(salary-base.salary)/(Math.max(1,base.salary)*1.5);
-     let leagueFit=Math.max(0,Math.min(1,((s.managerRating||30)-selectedOrg.unlock+25)/45));
-     let lenBonus=selectedLen===1?8:selectedLen===4?-4:2;
-     let chance=Math.round(Math.max(0,Math.min(98,fit.chance*.5+salaryFactor*30+leagueFit*20+lenBonus)));
-     if(fit.legend)chance=Math.min(chance,5);
-     if(Math.random()*100<chance){
-       signFighter(f,{org:selectedOrg,salary,length:selectedLen,signing:base.signing});
-     }else{
-       document.getElementById("sheet").innerHTML=`<div class="eyebrow">ОТВЕТ ЛИГИ / БОЙЦА</div><div class="title">Предложение отклонено</div>
-       <section class="panel"><div class="notice-strip">Условия ${selectedOrg.name} не устроили стороны.</div><div class="row"><span>Предложение</span><b>${selectedLen} боя • $${salary.toLocaleString("ru-RU")}/бой</b></div></section>
-       <div class="sheet-actions"><button data-close>Закрыть</button><button class="primary" data-counter>Торговаться</button></div>`;
-       document.querySelector("[data-close]").onclick=closeModal;
-       document.querySelector("[data-counter]").onclick=()=>negotiate(f);
-     }
-   };
- }
+ if(!fit.can){toast("Этот боец пока не готов работать с вашим менеджером");return}
+ if(s.fighters.some(x=>x.id===f.id)){toast("Боец уже в вашем агентстве");return}
+ let fee=Math.max(0,Math.round(300+ovr(f)*18+(f.popularity||10)*12));
+ let chance=Math.max(5,Math.min(96,fit.chance));
  document.getElementById("modal").classList.add("open");
- renderTerms();
+ document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ • АГЕНТСКОЕ ПРЕДСТАВИТЕЛЬСТВО</div>
+ <div class="title">${f.flag||"🌍"} ${f.name}</div>
+ <div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div>
+ <section class="panel">
+  <div class="row"><span>Рейтинг менеджера</span><b>${s.managerRating}</b></div>
+  <div class="row"><span>Требование бойца</span><b>${fit.required}</b></div>
+  <div class="row"><span>Шанс согласия</span><b>${chance}%</b></div>
+  <div class="row"><span>Агентский гонорар</span><b>$${fee.toLocaleString("ru-RU")}</b></div>
+  ${fit.legend?`<div class="notice-strip">Звёздный боец почти не меняет менеджера. Здесь решают доверие, популярность и история карьеры.</div>`:""}
+ </section>
+ <section class="panel">
+  <h3>Важно</h3>
+  <div class="muted">Подписание в твоё агентство НЕ означает контракт с лигой. После подписания ты сам ищешь доступные бои в разных организациях. Боец может провести один бой в ACA, затем один в PFL, затем подписать долгий контракт с другой лигой.</div>
+ </section>
+ <div class="sheet-actions"><button data-cancel>Отмена</button><button class="primary" data-sign-agency>Предложить представительство</button></div>`;
+ document.querySelector("[data-cancel]").onclick=closeModal;
+ document.querySelector("[data-sign-agency]").onclick=()=>{
+   if(Math.random()*100>chance){toast("Боец отказался от сотрудничества");return}
+   signFighter(f,{signing:fee});
+ };
 }
 function signFighter(f,negotiated=null){
  if(!f)return;
- let fit=fighterAffordability(f);if(!fit.can){toast("Этот боец пока не готов работать с вашим менеджером");return}
- if(s.fighters.some(x=>x.id===f.id)){toast("Боец уже в вашей команде");return}
- let org=negotiated?.org || ORGS.filter(o=>(s.managerRating||30)>=o.unlock&&o.name!=="DWCS").sort((a,b)=>a.level-b.level)[0]||ORGS.find(o=>o.name==="Ares FC")||ORGS[0];
- let terms=contractTerms(f,org);
- let fee=negotiated?.signing??terms.signing;
- let salary=negotiated?.salary??terms.salary;
- let length=negotiated?.length??terms.fights;
- if(s.money<fee){toast("Недостаточно денег на подписание");return}
+ let fit=fighterAffordability(f);
+ if(!fit.can){toast("Этот боец пока не готов работать с вашим менеджером");return}
+ if(s.fighters.some(x=>x.id===f.id)){toast("Боец уже в вашем агентстве");return}
+ if(s.money<(negotiated?.signing||0)){toast("Недостаточно денег на подписание");return}
  if(s.fighters.length>=12){toast("Лимит команды: 12 бойцов");return}
- s.money-=fee;
- f.contract={org:org.name,length,fightsLeft:length,salary,fee,source:"negotiated"};
- f.rating=ovr(f);
+ s.money-=negotiated?.signing||0;
+ f.contract=null;
+ f.agencyManaged=true;
+ f.agencySince=s.day;
+ f.leagueOffers=[];
+ f.nextFight=null;
+ f.rating=f.rating||ovr(f);
  s.fighters.push(f);
  s.world=s.world.filter(x=>x.id!==f.id);
  s.marketPool=(s.marketPool||[]).filter(id=>id!==f.id);
  s.selected=s.fighters.length-1;
- logNews(`${f.name} подписал ${length}-боевой контракт с вашей командой (${org.name}).`);
- updateRankings();save();closeModal();page("roster");toast(`Контракт подписан: ${f.name} • ${length} боя`);
+ logNews(`${f.name} подписал агентское соглашение с вашим менеджером. Боец свободен и ждёт предложений от лиг.`);
+ updateRankings();save();closeModal();page("roster");toast(`${f.name} теперь в твоём агентстве`);
 }
 function showLeagueOffers(f){
  if(!f)return;
- let candidates=ORGS.filter(o=>o.name!=="DWCS"&&o.name!==f.formerChampion?.org&&o.name!==f.formerContractOrg&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name)))
+ let candidates=ORGS.filter(o=>o.name!=="DWCS"&&o.name!==f.formerChampion?.org&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name)))
    .sort((a,b)=>b.level-a.level).slice(0,4);
  if(!candidates.length){save();return}
  let offers=candidates.slice(0,3).map(o=>{let terms=contractTerms(f,o);return {org:o.name,short:o.short,level:o.level,fights:choice([1,3,4]),salary:Math.max(terms.salary,Math.round(terms.salary*(.85+Math.random()*.35))),date:s.day}});
@@ -761,52 +738,61 @@ function profile(f,back="roster"){
 }
 function rosterProfile(i){s.selected=i;profile(s.fighters[i],"roster")}
 function matchmake(){
- let f=currentF();if(!f){toast("Выбери бойца");return}
- if(!f.contract){toast("Сначала подпиши контракт");return}
+ let f=currentF();
+ if(!f){toast("Выбери бойца");return}
+ if(!f.agencyManaged){toast("Сначала подпиши бойца в своё агентство");return}
  if(f.nextFight){toast("У бойца уже есть назначенный бой");return}
- let org=ORGS.find(o=>o.name===f.contract.org);
- if(!org){toast("У бойца нет действующего контракта с лигой");return}
- if(isTopLeague(org.name)&&!topLeagueEligible(f,org.name)){toast(`${org.name} не допускает такого бойца в текущий ростер`);return}
- let opps=s.world.filter(x=>x.weight===f.weight&&!x.contract&&x.org===org.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)))
-   .map(x=>({f:x,delta:Math.abs(ovr(x)-ovr(f))})).sort((a,b)=>a.delta-b.delta).slice(0,16).map(x=>x.f);
- if(!opps.length){toast(`В ${org.name} сейчас нет подходящих соперников`);return}
- let candidates=opps.slice(0,8).map(o=>{
-   let rounds=org.level>=9?5:3,date=s.day+rand(21,35),terms=contractTerms(f,org),event=choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99);
-   let diff=Math.abs(ovr(o)-ovr(f));
-   let ranked=getPos(o)<=15&&getPos(f)<=30;
-   let type=ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОБЫЧНЫЙ БОЙ";
-   return {opponent:o,org:org.name,rounds,date,purse:terms.purse,rank:getPos(o),event,type,ranked};
+
+ let eligibleOrgs=ORGS.filter(o=>o.name!=="DWCS" && (s.managerRating||30)>=Math.max(20,o.unlock-10))
+   .filter(o=>!isTopLeague(o.name)||topLeagueEligible(f,o.name));
+ let rows=[];
+ eligibleOrgs.forEach(org=>{
+   let opps=s.world.filter(x=>x.weight===f.weight&&!x.contract&&!x.agencyManaged&&x.org===org.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)))
+     .map(x=>({f:x,delta:Math.abs(ovr(x)-ovr(f))}))
+     .sort((a,b)=>a.delta-b.delta).slice(0,2).map(x=>x.f);
+   opps.forEach(o=>{
+     let ranked=getPos(o)<=15&&getPos(f)<=30;
+     let terms=contractTerms(f,org);
+     rows.push({opponent:o,org:org.name,rounds:org.level>=9?5:3,date:s.day+rand(14,42),purse:Math.max(terms.purse,Math.round(terms.purse*.45)),rank:getPos(o),event:choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99),ranked,type:ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОДНОРАЗОВЫЙ БОЙ"});
+   });
  });
- document.getElementById("modal").classList.add("open");document.getElementById("sheet").innerHTML=`<div class="eyebrow">MATCHMAKING</div><h2>Выбор соперника</h2><div class="muted">${f.flag||"🌍"} ${f.name} • ${f.weight} • OVR ${ovr(f)}</div><div class="list" style="margin-top:11px">${candidates.map((c,i)=>`<div class="scout"><div class="fighter-top"><div class="scout-face">${emoji(c.opponent.style)}</div><div class="fighter-info"><div class="fighter-name">${c.opponent.flag||"🌍"} ${c.opponent.name}</div><div class="fighter-sub">${c.opponent.country} • ${c.opponent.style} • ${rec(c.opponent)} • #${c.rank}</div></div><div class="score">${ovr(c.opponent)}</div></div><div class="tags"><span class="tag">${c.event}</span><span class="tag">${c.org}</span><span class="tag">${c.type}</span><span class="tag">${c.rounds} раундов</span><span class="tag">День ${c.date}</span><span class="tag">+$${c.purse}</span></div><div class="scout-actions"><button data-mmprofile="${i}">Профиль</button><button class="primary" data-accept="${i}">Принять бой</button></div></div>`).join("")}</div><div class="sheet-actions"><button data-close>Отмена</button></div>`;
+ rows.sort((a,b)=>(a.org===f.formerContractOrg?1:0)-(b.org===f.formerContractOrg?1:0));
+ let candidates=rows.slice(0,10);
+ if(!candidates.length){toast("Сейчас нет подходящих предложений. Обнови рынок позже.");return}
+
+ document.getElementById("modal").classList.add("open");
+ document.getElementById("sheet").innerHTML=`<div class="eyebrow">РЫНОК БОЁВ • СВОБОДНЫЙ БОЕЦ</div>
+ <h2>Предложения из разных лиг</h2>
+ <div class="muted">${f.flag||"🌍"} ${f.name} • ${f.weight} • OVR ${ovr(f)} • без долгосрочного контракта</div>
+ <section class="panel"><div class="notice-strip">Это НЕ контракт с лигой. Ты принимаешь конкретный бой на один выход. После боя организация может предложить 3–4 боя, а ты решаешь принять или отказаться.</div></section>
+ <div class="list" style="margin-top:11px">${candidates.map((c,i)=>`<div class="scout"><div class="fighter-top"><div class="scout-face">${emoji(c.opponent.style)}</div><div class="fighter-info"><div class="fighter-name">${c.opponent.flag||"🌍"} ${c.opponent.name}</div><div class="fighter-sub">${c.opponent.country} • ${c.opponent.style} • ${rec(c.opponent)} • #${c.rank}</div></div><div class="score">${ovr(c.opponent)}</div></div>
+ <div class="tags"><span class="tag">${c.org}</span><span class="tag">${c.type}</span><span class="tag">${c.rounds} раундов</span><span class="tag">${dateLabel(c.date)}</span><span class="tag">+$${c.purse.toLocaleString("ru-RU")}</span></div>
+ <div class="scout-actions"><button data-mmprofile="${i}">Профиль</button><button class="primary" data-accept="${i}">Рассмотреть бой</button></div></div>`).join("")}</div>
+ <div class="sheet-actions"><button data-close>Закрыть</button></div>`;
+
  document.querySelectorAll("[data-mmprofile]").forEach(b=>b.onclick=()=>profile(candidates[+b.dataset.mmprofile].opponent,"match"));
  document.querySelectorAll("[data-accept]").forEach(b=>b.onclick=()=>{
- let c=candidates[+b.dataset.accept];
- let min=Math.max(500,Math.round(c.purse*.65)), max=Math.round(c.purse*1.6);
- document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ О БОЕ</div>
- <div class="title">${f.name} vs ${c.opponent.name}</div>
- <div class="muted">${c.org} • ${c.event} • ${c.rounds} раундов • ${dateLabel(c.date)}</div>
- <section class="panel"><div class="row"><span>Соперник</span><b>${rec(c.opponent)} • #${c.rank}</b></div>
- <div class="row"><span>Базовый гонорар</span><b>$${c.purse.toLocaleString("ru-RU")}</b></div>
- <div style="margin-top:9px"><label class="muted">Требуемый гонорар, $</label><input id="fightSalary" class="input" type="number" min="${min}" max="${max}" value="${c.purse}"></div>
- <div class="notice-strip" style="margin-top:8px">Можно торговаться по гонорару. Слишком высокая сумма повышает риск отказа организации.</div></section>
- <div class="sheet-actions"><button data-close>Отмена</button><button class="primary" data-propose-fight>Предложить бой</button></div>`;
- document.querySelector("[data-close]").onclick=closeModal;
- document.querySelector("[data-propose-fight]").onclick=()=>{
-  let purse=Math.max(min,Math.min(max,Number(document.getElementById("fightSalary").value)||c.purse));
-  let chance=Math.round(Math.max(15,Math.min(98,78-Math.max(0,purse-c.purse)/Math.max(1,c.purse)*70)));
-  if(Math.random()*100>chance){
-   document.getElementById("sheet").innerHTML=`<div class="eyebrow">ОТВЕТ ОРГАНИЗАЦИИ</div><div class="title">Предложение отклонено</div><section class="panel"><div class="notice-strip">Организация не согласовала гонорар $${purse.toLocaleString("ru-RU")}.</div></section><div class="sheet-actions"><button data-close>Закрыть</button><button class="primary" data-counter-fight>Вернуться к переговорам</button></div>`;
-   document.querySelector("[data-close]").onclick=closeModal;
-   document.querySelector("[data-counter-fight]").onclick=()=>{closeModal();matchmake()};
-   return;
-  }
-  f.nextFight={opponent:{...c.opponent},org:c.org,event:c.event,rounds:c.rounds,date:c.date,purse,rank:c.rank,ranked:!!c.ranked,type:c.type,venue:choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Las Vegas","New York","Riyadh Arena"]),card:c.rounds===5?"MAIN EVENT":choice(["PRELIMS","MAIN CARD","CO-MAIN EVENT"])};
-  f.campWeek=1;f.campSchedule={};logNews(`${f.name} получил бой с ${c.opponent.name} в ${c.org}. Гонорар: $${purse.toLocaleString("ru-RU")}.`);
-  save();closeModal();page("home");toast("Бой согласован");
- };
-});
+   let c=candidates[+b.dataset.accept],min=Math.max(500,Math.round(c.purse*.65)),max=Math.round(c.purse*1.6);
+   document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ ОДНОРАЗОВОГО БОЯ</div>
+   <div class="title">${f.name} vs ${c.opponent.name}</div>
+   <div class="muted">${c.org} • ${c.event} • ${c.rounds} раундов • ${dateLabel(c.date)}</div>
+   <section class="panel"><div class="row"><span>Тип</span><b>${c.type}</b></div><div class="row"><span>Гонорар</span><b>$${c.purse.toLocaleString("ru-RU")}</b></div>
+   <div style="margin-top:9px"><label class="muted">Твой запрос, $</label><input id="fightSalary" class="input" type="number" min="${min}" max="${max}" value="${c.purse}"></div></section>
+   <div class="sheet-actions"><button data-back-mm>Назад</button><button class="primary" data-propose-fight>Предложить бой</button></div>`;
+   document.querySelector("[data-back-mm]").onclick=()=>matchmake();
+   document.querySelector("[data-propose-fight]").onclick=()=>{
+     let purse=Math.max(min,Math.min(max,Number(document.getElementById("fightSalary").value)||c.purse));
+     let chance=Math.round(Math.max(15,Math.min(98,82-Math.max(0,purse-c.purse)/Math.max(1,c.purse)*70)));
+     if(Math.random()*100>chance){toast("Лига отказалась от условий");return}
+     f.nextFight={opponent:{...c.opponent},org:c.org,event:c.event,rounds:c.rounds,date:c.date,purse,rank:c.rank,ranked:!!c.ranked,type:c.type,venue:choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Las Vegas","New York","Riyadh Arena"]),card:c.rounds===5?"MAIN EVENT":choice(["PRELIMS","MAIN CARD","CO-MAIN EVENT"]),oneFight:true};
+     f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;
+     logNews(`${f.name} принял бой в ${c.org} против ${c.opponent.name}. Это одноразовый контракт.`);
+     save();closeModal();page("home");toast(`Бой согласован: ${c.org}`);
+   };
+ });
  document.querySelector("[data-close]").onclick=closeModal;
 }
+
 const CAMP_STYLES=[
 {id:"balanced",name:"Сбалансированный",icon:"⚖️",desc:"Ровный лагерь без перекоса.",bonus:"Все направления +1 к эффективности",penalty:"Нет выраженного пика",fatigue:4},
 {id:"wrestling",name:"Борцовский",icon:"🤼",desc:"Тейкдауны, контроль и защита от борьбы.",bonus:"Борьба +4 • Грэпплинг +2",penalty:"Ударка -1 • усталость выше",fatigue:6},
@@ -954,15 +940,18 @@ function simulateFight(f,n){
    if(f.history.length>12)f.history.length=12;
    if(win){f.wins++;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true)}
    else{f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false)}
-   if(f.contract){
+   let completedOrg=n.org;
+ if(f.contract){
    f.contract.fightsLeft=Math.max(0,(f.contract.fightsLeft??f.contract.length??1)-1);
    if(f.contract.fightsLeft===0){
-     let oldOrg=f.contract.org;
-     logNews(`${f.name} завершил контракт с ${oldOrg}.`);
-     f.formerContractOrg=oldOrg;
+     f.formerContractOrg=f.contract.org;
+     logNews(`${f.name} завершил контракт с ${f.contract.org}.`);
      f.contract=null;
-     f.leagueOffersPending=true;
    }
+ }
+ if(n.oneFight){
+   f.formerContractOrg=completedOrg;
+   f.leagueOffersPending=true;
  }
  f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
    o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
