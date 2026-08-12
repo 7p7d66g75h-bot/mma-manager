@@ -467,7 +467,7 @@ function rankings(){
  let tabs=`<button data-ranksection="rankings" class="${!showLeagues?"primary":""}">РЕЙТИНГИ</button><button data-ranksection="leagues" class="${showLeagues?"primary":""}">ЛИГИ</button>`;
  let html=`<section class="panel"><div class="eyebrow">RANKINGS & PROMOTIONS</div><div class="title">Рейтинги</div><div class="actions">${tabs}</div></section>`;
  if(showLeagues){
-  html+=leagues.map(o=>{let leaders=allPool().filter(f=>f.org===o.name).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,5),unlocked=s.rep>=o.unlock;
+  html+=leagues.map(o=>{let leaders=allPool().filter(f=>f.org===o.name).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,5),unlocked=(s.managerRating||30)>=o.unlock;
    return `<section class="panel league-card"><div class="section-head"><h3>${o.name}</h3><span>${o.short}</span></div><div class="tags"><span class="tag">${o.region}</span><span class="tag">REP ${o.unlock}</span><span class="tag">${unlocked?"ДОСТУПНА":"ЗАКРЫТА"}</span></div><div class="smallgrid"><div><small>Уровень</small><b>${o.level}/10</b></div><div><small>Гонорар от</small><b>$${o.purse.toLocaleString("ru-RU")}</b></div><div><small>Бойцов</small><b>${allPool().filter(f=>f.org===o.name).length}</b></div><div><small>ТОП</small><b>${leaders[0]?.name||"—"}</b></div></div><div class="muted">${o.name==="UFC"?"Элитная лига. Слабые рекорды сюда не проходят.":o.name==="PFL"?"Крупная мировая лига с жёстким отбором.":o.name==="ACA"?"Региональная топ-лига СНГ; большинство состава — российские бойцы.":"Регулярные бои, рейтинги и переходы между уровнями."}</div><div class="actions"><button data-league-rank="${o.name}">Рейтинг</button>${unlocked&&o.name!=="DWCS"?`<button class="primary" data-league-roster="${o.name}">Матчмейкинг</button>`:""}</div></section>`}).join("");
  }else{
   let tabs2=`<button data-rankleague="__WORLD__" class="${!org?"primary":""}">МИРОВОЙ TOP 300</button>`+leagues.map(o=>`<button data-rankleague="${o.name}" class="${org?.name===o.name?"primary":""}">${o.short}</button>`).join("");
@@ -489,7 +489,7 @@ function rankings(){
 function league(){
  let ordered=ORGS.slice().sort((a,b)=>b.level-a.level);
  document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">PROMOTIONS</div><div class="title">10 организаций + DWCS</div><div class="muted">У каждой организации свой уровень, порог репутации, регион и место в карьерной лестнице.</div></section>
- ${ordered.map(o=>{let leaders=allPool().filter(f=>f.org===o.name||f.orgLevel===o.level).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,5);let unlocked=s.rep>=o.unlock;return `<section class="panel league-card"><div class="section-head"><h3>${o.name}</h3><span>${o.short}</span></div><div class="tags"><span class="tag">${o.region}</span><span class="tag">REP ${o.unlock}</span><span class="tag">${unlocked?"ДОСТУПНА":"ЗАКРЫТА"}</span></div><div class="smallgrid"><div><small>Уровень</small><b>${o.level}/10</b></div><div><small>Гонорар от</small><b>$${o.purse.toLocaleString("ru-RU")}</b></div><div><small>Рейтинговых весов</small><b>8</b></div><div><small>ТОП</small><b>${leaders[0]?.name||"—"}</b></div></div><div class="muted">${o.name==="DWCS"?"Отдельный путь: контракт через Dana White's Contender Series при достаточном уровне менеджера и готовности бойца.":o.name==="UFC"?"Высшая ступень карьеры. Прямой доступ требует высокой репутации и результатов.":"Регулярные бои, рейтинги и движение к следующему уровню."}</div><div class="actions"><button data-league-rank="${o.name}">Рейтинг</button>${unlocked&&o.name!=="DWCS"?`<button class="primary" data-league-roster="${o.name}">Матчмейкинг</button>`:""}</div></section>`}).join("")}`;
+ ${ordered.map(o=>{let leaders=allPool().filter(f=>f.org===o.name||f.orgLevel===o.level).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,5);let unlocked=(s.managerRating||30)>=o.unlock;return `<section class="panel league-card"><div class="section-head"><h3>${o.name}</h3><span>${o.short}</span></div><div class="tags"><span class="tag">${o.region}</span><span class="tag">REP ${o.unlock}</span><span class="tag">${unlocked?"ДОСТУПНА":"ЗАКРЫТА"}</span></div><div class="smallgrid"><div><small>Уровень</small><b>${o.level}/10</b></div><div><small>Гонорар от</small><b>$${o.purse.toLocaleString("ru-RU")}</b></div><div><small>Рейтинговых весов</small><b>8</b></div><div><small>ТОП</small><b>${leaders[0]?.name||"—"}</b></div></div><div class="muted">${o.name==="DWCS"?"Отдельный путь: контракт через Dana White's Contender Series при достаточном уровне менеджера и готовности бойца.":o.name==="UFC"?"Высшая ступень карьеры. Прямой доступ требует высокой репутации и результатов.":"Регулярные бои, рейтинги и движение к следующему уровню."}</div><div class="actions"><button data-league-rank="${o.name}">Рейтинг</button>${unlocked&&o.name!=="DWCS"?`<button class="primary" data-league-roster="${o.name}">Матчмейкинг</button>`:""}</div></section>`}).join("")}`;
  document.querySelectorAll("[data-league-rank]").forEach(x=>x.onclick=()=>{s.rankLeague=x.dataset.leagueRank;save();page("rankings")});
  document.querySelectorAll("[data-league-roster]").forEach(x=>x.onclick=()=>page("roster"));
 }
@@ -640,7 +640,10 @@ function market(){
 function negotiate(f){
  if(!f)return;
  let fit=fighterAffordability(f);
- let orgs=ORGS.filter(o=>o.name!=="DWCS"&&s.rep>=o.unlock&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name))).sort((a,b)=>a.level-b.level);
+ let orgs=ORGS.filter(o=>o.name!=="DWCS"&&(s.managerRating||30)>=o.unlock&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name))).sort((a,b)=>a.level-b.level);
+ if(!orgs.length){
+   orgs=ORGS.filter(o=>o.name!=="DWCS"&&o.level<=6&&o.unlock<=30).sort((a,b)=>a.level-b.level);
+ }
  if(!orgs.length){toast("Для этого бойца пока нет доступной лиги");return}
  let selectedOrg=orgs[0],selectedLen=3;
  const lengths=[1,3,4];
@@ -656,7 +659,7 @@ function negotiate(f){
    ${fit.legend?`<div class="notice-strip">Этот боец практически не рассматривает смену менеджмента.</div>`:""}</section>
    <section class="panel"><div class="section-head"><h3>Лига</h3><span>выбери сам</span></div>
    <div class="actions">${orgs.map(o=>`<button data-org="${o.name}" class="${o.name===selectedOrg.name?"primary":""}">${o.short} <span class="muted">REP ${o.unlock}</span></button>`).join("")}</div>
-   <div class="muted" style="margin-top:8px">${selectedOrg.name} • уровень ${selectedOrg.level}/10 • доступный гонорар зависит от OVR бойца.</div></section>
+   <div class="muted" style="margin-top:8px">${selectedOrg.name} • уровень ${selectedOrg.level}/10 • доступно при рейтинге менеджера ${selectedOrg.unlock}+ • доступный гонорар зависит от OVR бойца.</div></section>
    <section class="panel"><div class="section-head"><h3>Условия</h3><span>${selectedOrg.name}</span></div>
    <div class="actions three">${lengths.map(x=>`<button data-len="${x}" class="${x===selectedLen?"primary":""}">${x} ${x===1?"бой":"боя"}</button>`).join("")}</div>
    <div style="margin-top:10px"><label class="muted">Гонорар за бой, $</label><input id="offerSalary" class="input" type="number" min="${minSalary}" max="${maxSalary}" value="${base.salary}"></div>
@@ -668,7 +671,7 @@ function negotiate(f){
    document.querySelector("[data-offer]").onclick=()=>{
      let salary=Math.max(minSalary,Math.min(maxSalary,Number(document.getElementById("offerSalary").value)||base.salary));
      let salaryFactor=1-Math.abs(salary-base.salary)/(Math.max(1,base.salary)*1.5);
-     let leagueFit=Math.max(0,Math.min(1,(s.rep-selectedOrg.unlock+25)/45));
+     let leagueFit=Math.max(0,Math.min(1,((s.managerRating||30)-selectedOrg.unlock+25)/45));
      let lenBonus=selectedLen===1?8:selectedLen===4?-4:2;
      let chance=Math.round(Math.max(0,Math.min(98,fit.chance*.5+salaryFactor*30+leagueFit*20+lenBonus)));
      if(fit.legend)chance=Math.min(chance,5);
@@ -690,7 +693,7 @@ function signFighter(f,negotiated=null){
  if(!f)return;
  let fit=fighterAffordability(f);if(!fit.can){toast("Этот боец пока не готов работать с вашим менеджером");return}
  if(s.fighters.some(x=>x.id===f.id)){toast("Боец уже в вашей команде");return}
- let org=negotiated?.org || ORGS.filter(o=>s.rep>=o.unlock&&o.name!=="DWCS").sort((a,b)=>a.level-b.level)[0]||ORGS.find(o=>o.name==="LFA")||ORGS[0];
+ let org=negotiated?.org || ORGS.filter(o=>(s.managerRating||30)>=o.unlock&&o.name!=="DWCS").sort((a,b)=>a.level-b.level)[0]||ORGS.find(o=>o.name==="Ares FC")||ORGS[0];
  let terms=contractTerms(f,org);
  let fee=negotiated?.signing??terms.signing;
  let salary=negotiated?.salary??terms.salary;
