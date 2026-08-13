@@ -54,7 +54,7 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
   button{min-height:44px;}
   .nav{padding-left:max(5px,env(safe-area-inset-left));padding-right:max(5px,env(safe-area-inset-right));}
 }
-</style>
+.fight-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;background:rgba(8,11,15,.96);border:1px solid #303740;border-radius:12px;position:sticky;bottom:8px;z-index:25;box-shadow:0 8px 28px #000}.fight-controls button{min-height:46px}.fight-canvas-wrap{background:#080b0f;border:1px solid #343b45;border-radius:12px;overflow:hidden;margin:10px 0;position:relative}.fight-canvas-wrap canvas{display:block;width:100%;height:auto;aspect-ratio:16/9}.fight-canvas-label{position:absolute;top:8px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none;font-size:10px;font-weight:900;letter-spacing:.6px;text-shadow:0 2px 5px #000}@media(min-width:650px){.fight-controls{grid-template-columns:repeat(4,1fr)}}
 <style id="iphone-layout-fix-v3">
 @media (max-width:600px){
   html,body{width:100%;height:100%;height:100dvh;overflow:hidden;}
@@ -96,11 +96,11 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 <div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const BUILD_RESET_V13=true;
+const BUILD_RESET_V14=true;
 try{
- if(!localStorage.getItem("MMA_MANAGER_V13_CLEAN")){
+ if(!localStorage.getItem("MMA_MANAGER_V14_CLEAN")){
    localStorage.removeItem("mma_manager_save");
-   localStorage.setItem("MMA_MANAGER_V13_CLEAN","1");
+   localStorage.setItem("MMA_MANAGER_V14_CLEAN","1");
  }
 }catch(e){}
 "use strict";
@@ -660,7 +660,26 @@ function market(){
  document.querySelectorAll("[data-negotiate]").forEach(x=>x.onclick=()=>negotiate(list[+x.dataset.negotiate]));
  document.querySelector("[data-refresh-market]").onclick=()=>{s.marketPool=null;s.marketRefresh=0;save();market()};
 }
+function manageFighter(f){
+ if(!f)return;
+ document.getElementById("modal").classList.add("open");
+ let league=f.contract?`${f.contract.org} • осталось ${f.contract.fightsLeft}/${f.contract.length} боёв`:"Свободный агент";
+ document.getElementById("sheet").innerHTML=`<div class="eyebrow">УПРАВЛЕНИЕ БОЙЦОМ</div>
+ <div class="title">${f.flag||"🌍"} ${f.name}</div>
+ <div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div>
+ <section class="panel"><div class="row"><span>Статус</span><b>В твоём агентстве</b></div>
+ <div class="row"><span>Лига</span><b>${league}</b></div>
+ <div class="row"><span>Рейтинг</span><b>#${getPos(f)}</b></div></section>
+ <section class="panel"><h3>Переговоры</h3><div class="muted">Здесь управляются отношения с бойцом. Контракт с лигой и агентское представительство — разные вещи.</div>
+ <div class="actions"><button data-renew-agency>Обсудить условия</button>${f.contract?`<button class="danger" data-manage-terminate>Расторгнуть контракт</button>`:""}</div></section>
+ <div class="sheet-actions"><button data-manage-close>Закрыть</button></div>`;
+ document.querySelector("[data-manage-close]").onclick=closeModal;
+ document.querySelector("[data-renew-agency]").onclick=()=>toast("Боец уже под твоим управлением — здесь можно обсуждать условия агентства.");
+ let t=document.querySelector("[data-manage-terminate]");if(t)t.onclick=()=>{closeModal();document.querySelector(`[data-terminate-contract="${f.id}"]`)?.click()};
+}
 function negotiate(f){
+ if(s.fighters.some(x=>x.id===f.id)){manageFighter(f);return}
+
  if(!f)return;
  let fit=fighterAffordability(f);
  if(!fit.can){toast("Этот боец пока не готов работать с вашим менеджером");return}
@@ -759,7 +778,7 @@ function profile(f,back="roster"){
  <section class="panel"><div class="section-head"><h3>Статистика побед</h3><span>${rs.total} побед</span></div><div class="smallgrid"><div><small>KO/TKO</small><b>${rs.ko} • ${rs.pko}%</b></div><div><small>Сабмишны</small><b>${rs.sub} • ${rs.psub}%</b></div><div><small>Решения</small><b>${rs.dec} • ${rs.pdec}%</b></div><div><small>Досрочно</small><b>${rs.total?Math.round((rs.ko+rs.sub)/rs.total*100):0}%</b></div></div></section>
  <section class="panel"><div class="section-head"><h3>Контракт</h3><span>${f.contract?`${f.contract.fightsLeft}/${f.contract.length}`:"FREE AGENT"}</span></div>${f.contract?`<button data-terminate-contract="${f.id}" class="danger contract-terminate">Расторгнуть контракт</button>`:""}${f.leagueOffers?.length?`<div class="notice-strip">Есть ${f.leagueOffers.length} предложения от лиг.</div>`:""}${f.contract?`<div class="row"><span>Организация</span><b>${f.contract.org}</b></div><div class="row"><span>Гонорар</span><b>$${(f.contract.salary||0).toLocaleString("ru-RU")}</b></div>`:`<div class="muted">У бойца нет менеджера. Можно начать переговоры прямо из профиля.</div>`}</section>
  <section class="panel"><div class="section-head"><h3>Последние бои</h3><span>${(f.history||[]).length}</span></div>${history||`<div class="muted">Истории боёв пока нет.</div>`}</section>
- <div class="sheet-actions"><button data-back-profile>Назад</button>${!f.contract&&!f.retired?`<button class="primary" data-profile-negotiate>Вести дела</button>`:""}${f.contract&&!f.nextFight?`<button class="primary" data-profile-match>Организовать бой</button>`:""}${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;
+ <div class="sheet-actions"><button data-back-profile>Назад</button>${!f.retired?`<button class="primary" data-profile-negotiate>${s.fighters.some(x=>x.id===f.id)?"Вести дела":"Вести дела"}</button>`:""}${f.contract&&!f.nextFight?`<button class="primary" data-profile-match>Организовать бой</button>`:""}${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;
  document.querySelector("[data-back-profile]").onclick=()=>{closeModal();if(back==="market")market();else if(back==="match")matchmake();else if(back==="rankings")rankings();else if(back==="event")newsCenter();else page("roster")};
  let ng=document.querySelector("[data-profile-negotiate]");if(ng)ng.onclick=()=>negotiate(f);
  let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);matchmake()};
@@ -912,9 +931,10 @@ function simulateFight(f,n){
  <div class="actions"><button data-sp="1" class="primary">ОБЫЧНОЕ</button><button data-sp="30">УСКОРЕННОЕ</button><button data-sp="50">МОЛНИЕНОСНОЕ</button></div>
  <div class="muted" id="speedText" style="text-align:center;margin-top:5px">Скорость: 1× • 1 раунд = 5:00</div>
  <div class="live-log"><div id="live" class="live-log-text">РАУНД 1. Бойцы начинают осторожно...</div></div>
+ <div class="fight-canvas-wrap"><canvas id="fightCanvas" width="960" height="540"></canvas><div class="fight-canvas-label"><span>${f.name}</span><span>2D FIGHT VISUALIZER</span><span>${o.name}</span></div></div>
  <section class="panel" style="margin-top:8px"><div class="section-head"><h3>Статистика</h3><span id="scoreRounds">0 : 0</span></div>
  <div class="grid4"><div class="stat"><small>Удары</small><b id="stSig">0 : 0</b></div><div class="stat"><small>ТД</small><b id="stTd">0 : 0</b></div><div class="stat"><small>Саб</small><b id="stSub">0 : 0</b></div><div class="stat"><small>Общий счёт</small><b id="stScore">0 : 0</b></div></div></section>
- <div class="sheet-actions"><button id="fightStats" class="secondary">Статистика</button><button id="stopFight" class="red">Выйти</button></div>`;
+ <div class="fight-controls"><button id="changePlanBtn" class="secondary">План раунда</button><button id="fightStats" class="secondary">Статистика</button><button id="nextRoundBtn" class="primary" style="display:none">Следующий раунд</button><button id="stopFight" class="red">Выйти</button></div>`;
 
  function setLive(x){let el=document.getElementById("live");if(el)el.textContent=x}
  function hit(att,def,attF){
@@ -1044,7 +1064,33 @@ function simulateFight(f,n){
  cont.onclick=()=>{closeModal();page("home")};
 document.getElementById("stopFight").textContent="Продолжить";document.getElementById("stopFight").className="primary";document.getElementById("stopFight").onclick=()=>{closeModal();page("home")}
  }
- function frame(now){
+ function draw2DFight(){
+ const c=document.getElementById("fightCanvas");if(!c)return;const ctx=c.getContext("2d"),W=c.width,H=c.height;
+ ctx.clearRect(0,0,W,H);
+ ctx.fillStyle="#10151b";ctx.fillRect(0,0,W,H);
+ // cage/ring
+ ctx.strokeStyle="#4b5561";ctx.lineWidth=5;ctx.strokeRect(35,45,W-70,H-90);
+ ctx.strokeStyle="#2d343d";ctx.lineWidth=2;for(let x=80;x<W-40;x+=55){ctx.beginPath();ctx.moveTo(x,45);ctx.lineTo(x,H-45);ctx.stroke()}
+ const t=performance.now()/260;
+ const action=Math.sin(t)+Math.sin(t*1.7)*.35;
+ const ax=W*.34+Math.max(-35,Math.min(35,action*18)),bx=W*.66-Math.max(-35,Math.min(35,action*18));
+ function fighter(x,y,flip,accent,pose){
+   ctx.save();ctx.translate(x,y);if(flip)ctx.scale(-1,1);
+   ctx.lineWidth=9;ctx.lineCap="round";ctx.strokeStyle=accent;ctx.fillStyle=accent;
+   // legs
+   ctx.beginPath();ctx.moveTo(0,35);ctx.lineTo(-14,82);ctx.moveTo(0,35);ctx.lineTo(18,82);ctx.stroke();
+   // torso/head
+   ctx.beginPath();ctx.arc(0,-8,16,0,Math.PI*2);ctx.fill();
+   ctx.fillRect(-18,8,36,48);
+   // arms animate toward opponent
+   ctx.beginPath();ctx.moveTo(-13,18);ctx.lineTo(-28,pose?5:28);ctx.moveTo(13,18);ctx.lineTo(28,pose?5:28);ctx.stroke();
+   ctx.restore();
+ }
+ const exchange=Math.abs(Math.sin(t*2.2))>.82;
+ fighter(ax,H*.58,false,"#d6a93a",exchange);fighter(bx,H*.58,true,"#b8c0ca",exchange);
+ ctx.fillStyle="#dce2e8";ctx.font="bold 14px Arial";ctx.textAlign="center";ctx.fillText(`R${round}  ${Math.floor(roundTime/60)}:${String(Math.floor(roundTime%60)).padStart(2,"0")}`,W/2,28);
+}
+function frame(now){
    if(!running)return;
    let dt=Math.min(.25,(now-last)/1000);last=now;let effectiveSpeed=speed;simTime+=dt*effectiveSpeed;roundTime-=dt*effectiveSpeed;
    let planBoost=currentPlan==="pressure"?1.12:currentPlan==="counter"?0.95:currentPlan==="wrestle"?1.05:currentPlan==="survive"?0.72:1;
@@ -1056,13 +1102,13 @@ document.getElementById("stopFight").textContent="Продолжить";document
   roundEnd();
   if(!running)return;
   running=false;
-  const nb=document.getElementById("nextRoundBtn");
-  if(round<totalRounds && nb){nb.style.display="inline-flex";toast("Раунд "+round+" завершён");}
+  if(round<totalRounds && nb){nb.style.display="inline-flex";toast("Раунд "+round+" завершён — выбери следующий раунд");}
   else {finish();}
   return;
 }
    let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
    document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
+   draw2DFight();
    [["ah",a.head],["ab",a.body],["al",a.legs],["bh",b.head],["bb",b.body],["bl",b.legs],["as",a.stamina],["bs",b.stamina]].forEach(([id,v])=>{let e=document.getElementById(id);if(e)e.textContent=Math.max(0,Math.round(v))});
    [["ahb",a.head],["abb",a.body],["alb",a.legs],["bhb",b.head],["bbb",b.body],["blb",b.legs],["asb",a.stamina],["bsb",b.stamina]].forEach(([id,v])=>{let e=document.getElementById(id);if(e)e.style.width=Math.max(0,v)+"%"});
    document.getElementById("stSig").textContent=`${a.sig} : ${b.sig}`;document.getElementById("stTd").textContent=`${a.td} : ${b.td}`;document.getElementById("stSub").textContent=`${a.sub} : ${b.sub}`;
@@ -1097,15 +1143,10 @@ document.getElementById("fightStats").onclick=()=>{
  document.getElementById("closeFightStats2").onclick=()=>ov.remove();
 };
 
-const fightControls=document.querySelector(".sheet-actions");
-if(fightControls && !document.getElementById("nextRoundBtn")){
- const nb=document.createElement("button");nb.id="nextRoundBtn";nb.textContent="Следующий раунд";nb.className="primary";nb.style.display="none";
- const pb=document.createElement("button");pb.id="changePlanBtn";pb.textContent="План на раунд";pb.className="secondary";
- fightControls.insertBefore(nb,fightControls.firstChild);
- fightControls.insertBefore(pb,fightControls.firstChild);
- pb.onclick=async()=>{currentPlan=await chooseFightPlan();roundPlans[round-1]=currentPlan;toast("План: "+fightPlanLabel(currentPlan))};
- nb.onclick=()=>{nb.style.display="none";roundTime=300;round++;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;currentPlan=roundPlans[round-1]||"balanced";running=true;last=performance.now();toast("Раунд "+round+" • "+fightPlanLabel(currentPlan));raf=requestAnimationFrame(frame);};
-}
+const fightControls=document.querySelector(".fight-controls");
+const nb=document.getElementById("nextRoundBtn"),pb=document.getElementById("changePlanBtn");
+pb.onclick=async()=>{currentPlan=await chooseFightPlan();roundPlans[round-1]=currentPlan;toast("План: "+fightPlanLabel(currentPlan))};
+nb.onclick=()=>{nb.style.display="none";roundTime=300;round++;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;currentPlan=roundPlans[round-1]||"balanced";running=true;last=performance.now();toast("Раунд "+round+" • "+fightPlanLabel(currentPlan));raf=requestAnimationFrame(frame);};
 document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`${speed===1?"Обычное время":speed===30?"Ускоренное время":"Молниеносное время"} • 1 раунд ≈ ${Math.max(1,Math.round(300/speed))} сек`});
  document.getElementById("stopFight").onclick=()=>{
   running=false;cancelAnimationFrame(raf);
