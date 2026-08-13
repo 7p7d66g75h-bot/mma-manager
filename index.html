@@ -855,7 +855,7 @@ function simulateFight(f,n){
  let o=n.opponent,totalRounds=(Number(n.rounds)===5?5:3);
  let a={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
  let b={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
- let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null;
+ let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null,scorecards=[];
 
  document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${n.ranked?"РЕЙТИНГОВЫЙ БОЙ • ":""}${totalRounds} РАУНДОВ</div>
  <div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b>
@@ -908,7 +908,12 @@ function simulateFight(f,n){
    a.stamina=Math.max(0,a.stamina-rand(0,1));b.stamina=Math.max(0,b.stamina-rand(0,1));
  }
  function roundEnd(){
-   let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";let sa=ar===br?10:(ar>br?(ar-br>18?10:10):(10-(br-ar>18?2:1))),sb=ar===br?10:(br>ar?(br-ar>18?10:10):(10-(ar-br>18?2:1)));scorecards.push({a:sa,b:sb});
+   let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";
+   let diff=Math.abs(ar-br);
+   let sa=10,sb=10;
+   if(winner==="A"){sa=10;sb=diff>=30?8:9}
+   else if(winner==="B"){sb=10;sa=diff>=30?8:9}
+   scorecards.push({a:sa,b:sb});
    a.rounds.push(winner);b.rounds.push(winner==="A"?"B":winner==="B"?"A":"X");
    a.roundScore=0;b.roundScore=0;
    a.stamina=Math.min(100,a.stamina+25);b.stamina=Math.min(100,b.stamina+25);
@@ -916,8 +921,10 @@ function simulateFight(f,n){
    document.getElementById("scoreRounds").textContent=`${aw} : ${bw}`;
    setLive(winner==="X"?`Раунд ${round} — близкий, возможен split`:`Раунд ${round} — ${winner==="A"?f.name:o.name}`);
    if(round>=totalRounds){finish();return}
-   round++;roundTime=300;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
-   setTimeout(()=>setLive(`РАУНД ${round}. Бой продолжается...`),250);
+   round++;
+   roundTime=300;
+   document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
+   setLive(`РАУНД ${round}. Бой продолжается...`);
  }
  function finish(){
    if(fightFinished)return;
@@ -983,9 +990,8 @@ function simulateFight(f,n){
    if(finishReason){finish();return}
    if(a.head<=0||b.head<=0){finish();return}
    if(roundTime<=0){
-  roundEnd();
+  try{ roundEnd(); }catch(err){ console.error("ROUND ERROR",err); setLive("Ошибка перехода раунда — бой продолжается"); round++; roundTime=300; document.getElementById("rn").textContent=`${round} / ${totalRounds}`; }
   if(!running)return;
-  roundTime=300;
 }
    let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
    document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
