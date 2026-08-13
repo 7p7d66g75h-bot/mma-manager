@@ -96,6 +96,13 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 <div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
 <div id="toast" class="toast"></div>
 <script>
+const BUILD_RESET_V12=true;
+try{
+ if(!localStorage.getItem("MMA_MANAGER_V12_CLEAN")){
+   localStorage.removeItem("mma_manager_save");
+   localStorage.setItem("MMA_MANAGER_V12_CLEAN","1");
+ }
+}catch(e){}
 "use strict";
 const KEY="mma_manager_ultimate_v17";
 const WEIGHTS=["Flyweight","Bantamweight","Featherweight","Lightweight","Welterweight","Middleweight","Light Heavyweight","Heavyweight"];
@@ -126,6 +133,21 @@ let s=load();
 
 function clone(x){return JSON.parse(JSON.stringify(x))}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||clone(initial)}catch(e){return clone(initial)}}
+
+function resetCareerData(){
+  s.money=10000;
+  s.day=1;
+  s.week=1;
+  s.managerRating=30;
+  s.rep=5;
+  s.fighters=[];
+  s.selected=null;
+  s.news=[];
+  s.events=[];
+  s.careerStarted=false;
+  s.setup=true;
+  s.managerRecord={wins:0,losses:0,draws:0};
+}
 function save(){localStorage.setItem(KEY,JSON.stringify(s))}
 function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>e.classList.remove("show"),1800)}
 function clamp(n,a=20,b=100){return Math.max(a,Math.min(b,Math.round(n)))}
@@ -622,7 +644,8 @@ document.getElementById("content").innerHTML=`<section class="panel"><div class=
 <section class="panel"><button class="red" style="width:100%" data-reset>Удалить карьеру</button></section>`;bindMore()}
 function bindMore(){document.querySelectorAll("[data-save]").forEach(b=>b.onclick=()=>saveSlot(+b.dataset.save));document.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>loadSlot(+b.dataset.load));document.querySelector("[data-reset]").onclick=()=>{if(confirm("Удалить текущую карьеру?")){localStorage.removeItem(KEY);s=clone(initial);render()}}}
 function saveSlot(n){localStorage.setItem(KEY+"_"+n,JSON.stringify(s));toast("Сохранено в слот "+n)}
-function loadSlot(n){let x=localStorage.getItem(KEY+"_"+n);if(!x){toast("Слот пуст");return}try{s=JSON.parse(x);ensureWorld();save();render();toast("Карьера загружена")}catch(e){toast("Ошибка сохранения")}}
+function loadSlot(n){let x=localStorage.getItem(KEY+"_"+n);if(!x){toast("Слот пуст");return}try{s=JSON.parse(x);ensureWorld();save();resetCareerData();
+render();toast("Карьера загружена")}catch(e){toast("Ошибка сохранения")}}
 function market(){
  let pool=s.world.filter(f=>!s.fighters.some(x=>x.id===f.id)&&!f.contract&&f.rating<82);
  if(!s.marketPool||s.marketPool.length<5||s.marketRefresh!==s.day){
@@ -850,12 +873,29 @@ document.getElementById("sheet").innerHTML=`<div class="eyebrow">OFFICIAL WEIGH-
 document.getElementById("studyOpp").onclick=()=>profile(o,"prefight");
 document.getElementById("startFight").onclick=()=>simulateFight(f,n);
 }
+
+function fightPlanLabel(p){
+ const map={balanced:"Сбалансированный",pressure:"Давление",counter:"Контратаки",wrestle:"Борьба",grind:"Контроль у сетки",survive:"Сохранить силы"};
+ return map[p]||"Сбалансированный";
+}
+function chooseFightPlan(){
+ const plans=["balanced","pressure","counter","wrestle","grind","survive"];
+ return new Promise(resolve=>{
+   const modal=document.createElement("div");modal.id="planModal";modal.style.cssText="position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.88);padding:16px;overflow:auto";
+   modal.innerHTML=`<div class="panel" style="max-width:520px;margin:35px auto"><div class="eyebrow">ПЛАН НА СЛЕДУЮЩИЙ РАУНД</div><h2>Выбери тактику</h2><div class="actions">${plans.map(p=>`<button data-plan="${p}">${fightPlanLabel(p)}</button>`).join("")}</div></div>`;
+   document.body.appendChild(modal);
+   modal.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>{modal.remove();resolve(b.dataset.plan)});
+ });
+}
 function simulateFight(f,n){
  if(f.fightResolved){toast("Этот бой уже завершён");return}
  let o=n.opponent,totalRounds=(Number(n.rounds)===5?5:3);
+ let roundPlans=Array(totalRounds).fill("balanced");
+ let currentPlan="balanced";
+ let awaitingRoundPlan=false;
  let a={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
  let b={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
- let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null,scorecards=[];
+ let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null;
 
  document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${n.ranked?"РЕЙТИНГОВЫЙ БОЙ • ":""}${totalRounds} РАУНДОВ</div>
  <div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b>
@@ -908,12 +948,7 @@ function simulateFight(f,n){
    a.stamina=Math.max(0,a.stamina-rand(0,1));b.stamina=Math.max(0,b.stamina-rand(0,1));
  }
  function roundEnd(){
-   let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";
-   let diff=Math.abs(ar-br);
-   let sa=10,sb=10;
-   if(winner==="A"){sa=10;sb=diff>=30?8:9}
-   else if(winner==="B"){sb=10;sa=diff>=30?8:9}
-   scorecards.push({a:sa,b:sb});
+   let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";let sa=ar===br?10:(ar>br?(ar-br>18?10:10):(10-(br-ar>18?2:1))),sb=ar===br?10:(br>ar?(br-ar>18?10:10):(10-(ar-br>18?2:1)));scorecards.push({a:sa,b:sb});
    a.rounds.push(winner);b.rounds.push(winner==="A"?"B":winner==="B"?"A":"X");
    a.roundScore=0;b.roundScore=0;
    a.stamina=Math.min(100,a.stamina+25);b.stamina=Math.min(100,b.stamina+25);
@@ -921,10 +956,8 @@ function simulateFight(f,n){
    document.getElementById("scoreRounds").textContent=`${aw} : ${bw}`;
    setLive(winner==="X"?`Раунд ${round} — близкий, возможен split`:`Раунд ${round} — ${winner==="A"?f.name:o.name}`);
    if(round>=totalRounds){finish();return}
-   round++;
-   roundTime=300;
-   document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
-   setLive(`РАУНД ${round}. Бой продолжается...`);
+   round++;roundTime=300;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
+   setTimeout(()=>setLive(`РАУНД ${round}. Бой продолжается...`),250);
  }
  function finish(){
    if(fightFinished)return;
@@ -985,13 +1018,19 @@ function simulateFight(f,n){
  function frame(now){
    if(!running)return;
    let dt=Math.min(.25,(now-last)/1000);last=now;let effectiveSpeed=speed;simTime+=dt*effectiveSpeed;roundTime-=dt*effectiveSpeed;
-   let ticks=Math.floor(simTime/4);
+   let planBoost=currentPlan==="pressure"?1.12:currentPlan==="counter"?0.95:currentPlan==="wrestle"?1.05:currentPlan==="survive"?0.72:1;
+   let ticks=Math.floor((simTime/4)*planBoost);
    if(ticks>0){simTime-=ticks*4;for(let i=0;i<Math.min(ticks,3);i++)event()}
    if(finishReason){finish();return}
    if(a.head<=0||b.head<=0){finish();return}
    if(roundTime<=0){
-  try{ roundEnd(); }catch(err){ console.error("ROUND ERROR",err); setLive("Ошибка перехода раунда — бой продолжается"); round++; roundTime=300; document.getElementById("rn").textContent=`${round} / ${totalRounds}`; }
+  roundEnd();
   if(!running)return;
+  running=false;
+  const nb=document.getElementById("nextRoundBtn");
+  if(round<totalRounds && nb){nb.style.display="inline-flex";toast("Раунд "+round+" завершён");}
+  else {finish();}
+  return;
 }
    let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
    document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
@@ -1014,6 +1053,9 @@ document.getElementById("fightStats").onclick=()=>{
  ov.innerHTML=`<div class="panel" style="max-width:520px;margin:30px auto">
   <div class="section-head"><h3>Статистика боя</h3><button id="closeFightStats">×</button></div>
   <div class="grid4">
+   <div class="stat"><small>Удары выброшено</small><b>${a.strikes||0} : ${b.strikes||0}</b></div>
+   <div class="stat"><small>Попадания</small><b>${a.hits||a.sig} : ${b.hits||b.sig}</b></div>
+   <div class="stat"><small>Точность</small><b>${a.strikes?Math.round((a.hits||a.sig)/a.strikes*100):0}% : ${b.strikes?Math.round((b.hits||b.sig)/b.strikes*100):0}%</b></div>
    <div class="stat"><small>Значимые удары</small><b>${a.sig} : ${b.sig}</b></div>
    <div class="stat"><small>Тейкдауны</small><b>${a.td} : ${b.td}</b></div>
    <div class="stat"><small>Сабмишены</small><b>${a.sub} : ${b.sub}</b></div>
@@ -1027,6 +1069,16 @@ document.getElementById("fightStats").onclick=()=>{
  document.getElementById("closeFightStats").onclick=()=>ov.remove();
  document.getElementById("closeFightStats2").onclick=()=>ov.remove();
 };
+
+const fightControls=document.querySelector(".sheet-actions");
+if(fightControls && !document.getElementById("nextRoundBtn")){
+ const nb=document.createElement("button");nb.id="nextRoundBtn";nb.textContent="Следующий раунд";nb.className="primary";nb.style.display="none";
+ const pb=document.createElement("button");pb.id="changePlanBtn";pb.textContent="План на раунд";pb.className="secondary";
+ fightControls.insertBefore(nb,fightControls.firstChild);
+ fightControls.insertBefore(pb,fightControls.firstChild);
+ pb.onclick=async()=>{currentPlan=await chooseFightPlan();roundPlans[round-1]=currentPlan;toast("План: "+fightPlanLabel(currentPlan))};
+ nb.onclick=()=>{nb.style.display="none";roundTime=300;round++;currentPlan=roundPlans[round-1]||"balanced";running=true;last=performance.now();toast("Раунд "+round+" • "+fightPlanLabel(currentPlan));raf=requestAnimationFrame(frame);};
+}
 document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`${speed===1?"Обычное время":speed===30?"Ускоренное время":"Молниеносное время"} • 1 раунд ≈ ${Math.max(1,Math.round(300/speed))} сек`});
  document.getElementById("stopFight").onclick=()=>{
   running=false;cancelAnimationFrame(raf);
