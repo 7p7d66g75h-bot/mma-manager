@@ -81,11 +81,16 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 .zone{font-size:9px;text-align:left;margin:4px 0}.zone span{display:flex;justify-content:space-between;gap:8px}.zone i{display:block;height:4px;background:#30343a;border-radius:4px;overflow:hidden}.zone em{display:block;height:100%;background:#c9a44b}.fightbox .corner{min-width:0}
 </style><style id="next-round-fix">
 .next-round-ready{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1/-1!important}
-.next-round-fixed{display:none;position:fixed;left:14px;right:14px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:20000;min-height:62px;border:2px solid #e0b943;border-radius:14px;background:#d6a93a;color:#090b0e;font-size:18px;font-weight:1000;align-items:center;justify-content:center;box-shadow:0 10px 35px rgba(0,0,0,.7)}
+
 </style><style id="result-method-style">
 .result-cinematic{border:1px solid #333b46;border-radius:14px;background:linear-gradient(145deg,#151a21,#090d12);margin:8px 0;padding:20px!important}
 .result-cinematic #resultStage{color:#e2bb4d;text-shadow:0 4px 22px rgba(214,169,58,.25)}
 .result-cinematic #resultName{font-size:clamp(22px,7vw,34px);font-weight:1000}
+</style><style id="fight-controls-v20">
+.fight-controls{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;padding:10px!important}
+.fight-controls #changePlanBtn,.fight-controls #fightStats{grid-column:auto!important}
+.fight-controls #nextRoundBtn,.fight-controls #stopFight{grid-column:1/-1!important;min-height:60px!important}
+.fight-controls #nextRoundBtn{font-size:18px!important;font-weight:1000!important}
 </style></head>
 <body>
 <div class="app">
@@ -928,7 +933,12 @@ function simulateFight(f,n){
  <section class="panel" style="margin-top:8px"><div class="section-head"><h3>Статистика</h3><span id="scoreRounds">0 : 0</span></div>
  <div class="grid4"><div class="stat"><small>Удары</small><b id="stSig">0 : 0</b></div><div class="stat"><small>ТД</small><b id="stTd">0 : 0</b></div><div class="stat"><small>Саб</small><b id="stSub">0 : 0</b></div><div class="stat"><small>Общий счёт</small><b id="stScore">0 : 0</b></div></div></section>
  <div id="roundAction" class="round-action" style="display:none">РАУНД ЗАВЕРШЁН</div>
- <div class="fight-controls"><button id="changePlanBtn" class="secondary">План раунда</button><button id="fightStats" class="secondary">Статистика</button><button id="nextRoundBtn" class="primary" style="display:none">Следующий раунд</button><button id="stopFight" class="red">Выйти</button></div>`;
+ <div class="fight-controls">
+ <button id="changePlanBtn" class="secondary">План раунда</button>
+ <button id="fightStats" class="secondary">Статистика</button>
+ <button id="nextRoundBtn" class="primary" style="display:none">▶ Следующий раунд</button>
+ <button id="stopFight" class="red">Выйти</button>
+</div>`;
 
  function setLive(x){let el=document.getElementById("live");if(el)el.textContent=x}
  function hit(att,def,attF){
@@ -964,32 +974,22 @@ function simulateFight(f,n){
  }
  function showNextRound(){
  const nb=document.getElementById("nextRoundBtn"),ra=document.getElementById("roundAction");
- if(ra){ra.textContent=`РАУНД ${round} ЗАВЕРШЁН • СТАТИСТИКА ГОТОВА`;ra.style.display="block"}
- if(nb){
-   nb.textContent=`Следующий раунд • R${round+1}`;
+ if(ra){ra.textContent=`РАУНД ${round} ЗАВЕРШЁН`;ra.style.display="block";}
+ if(nb && round<totalRounds){
+   nb.textContent=`▶ Следующий раунд • R${round+1}`;
    nb.hidden=false;
    nb.removeAttribute("hidden");
-   nb.style.setProperty("display","flex","important");
-   nb.style.setProperty("visibility","visible","important");
-   nb.style.setProperty("opacity","1","important");
+   nb.style.display="flex";
+   nb.style.visibility="visible";
+   nb.style.opacity="1";
    nb.classList.add("next-round-ready");
  }
- // Fixed fallback button: it cannot be hidden by the fight layout or scroll position.
- let fx=document.getElementById("nextRoundFixed");
- if(!fx){
-   fx=document.createElement("button");fx.id="nextRoundFixed";fx.className="next-round-fixed";
-   document.body.appendChild(fx);
- }
- fx.textContent=`▶  Следующий раунд • R${round+1}`;
- fx.style.display="flex";
- fx.onclick=()=>startNextRound();
  toast(`Раунд ${round} завершён`);
 }
 function startNextRound(){
  if(round>=totalRounds)return;
- const nb=document.getElementById("nextRoundBtn"),fx=document.getElementById("nextRoundFixed"),ra=document.getElementById("roundAction");
- if(nb)nb.style.setProperty("display","none","important");
- if(fx)fx.style.display="none";
+ const nb=document.getElementById("nextRoundBtn"),ra=document.getElementById("roundAction");
+ if(nb)nb.style.display="none";
  if(ra)ra.style.display="none";
  round++;
  roundTime=300;simTime=0;running=true;last=performance.now();
@@ -997,7 +997,8 @@ function startNextRound(){
  if(rn)rn.textContent=`${round} / ${totalRounds}`;
  if(tm)tm.textContent="5:00";
  currentPlan=roundPlans[round-1]||"balanced";
- draw2DFight();toast(`Раунд ${round} • ${fightPlanLabel(currentPlan)}`);
+ draw2DFight();
+ toast(`Раунд ${round} • ${fightPlanLabel(currentPlan)}`);
  raf=requestAnimationFrame(frame);
 }
 function roundEnd(){
@@ -1012,7 +1013,6 @@ function roundEnd(){
    document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
  }
  function finish(){
- const fx=document.getElementById("nextRoundFixed");if(fx)fx.style.display="none";
  if(fightFinished)return;
  fightFinished=true;f.fightResolved=true;running=false;cancelAnimationFrame(raf);
 
