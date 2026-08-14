@@ -96,7 +96,7 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 <div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const BUILD_RESET_V14=true;
+const BUILD_RESET_V17=true;
 try{
  if(!localStorage.getItem("MMA_MANAGER_V14_CLEAN")){
    localStorage.removeItem("mma_manager_save");
@@ -899,6 +899,8 @@ function simulateFight(f,n){
  let a={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
  let b={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
  let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null;
+ let fightFinished=false;
+ let scorecards=[];
 
  document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${n.ranked?"РЕЙТИНГОВЫЙ БОЙ • ":""}${totalRounds} РАУНДОВ</div>
  <div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b>
@@ -930,15 +932,15 @@ function simulateFight(f,n){
    else if(zone<.75){dmg=rand(0,2)+Math.max(0,Math.round((hand-90)/60));def.body-=dmg;label="в корпус"}
    else{dmg=rand(0,2)+Math.max(0,Math.round((leg-90)/60));def.legs-=dmg;label="по ногам"}
    dmg=Math.max(1,dmg);att.score+=dmg;att.roundScore+=dmg;att.sig++;
-   att.strikes=(att.strikes||0)+1;att.hits=(att.hits||0)+1;
+   att.hits=(att.hits||0)+1;
    return label;
  }
  function event(){
    let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500;
    let t=Math.random();
    if(t<.62){
-     if(Math.random()+edge*.35>.5){a.strikes=(a.strikes||0)+1;let label=hit(a,b,f);a.strikes--;setLive(`${f.name} точно попадает ${label}`)}
-     else{b.strikes=(b.strikes||0)+1;let label=hit(b,a,o);b.strikes--;setLive(`${o.name} отвечает ${label}`)}
+     if(Math.random()+edge*.35>.5){a.strikes=(a.strikes||0)+1;let label=hit(a,b,f);setLive(`${f.name} точно попадает ${label}`)}
+     else{b.strikes=(b.strikes||0)+1;let label=hit(b,a,o);setLive(`${o.name} отвечает ${label}`)}
    }else if(t<.84){
      let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;
      if(Math.random()+tdEdge>.52){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}
