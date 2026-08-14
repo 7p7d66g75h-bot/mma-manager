@@ -1857,10 +1857,10 @@ render();
 .mma-v39-champion-meta{font-size:11px;color:#9aa3ad;margin-top:3px}
 .mma-v39-rankhead{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
 </style>
-<script id="MMA_MANAGER_V39_REAL_FIX">
+<script id="MMA_MANAGER_V40_TITLE_STATE">
 (function(){
   'use strict';
-  const BUILD='MMA_MANAGER_V39_REAL_FIX';
+  const BUILD='MMA_MANAGER_V40_TITLE_STATE';
   document.documentElement.dataset.build=BUILD;
   function esc(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
   function removeOldChampionUI(){
@@ -1869,7 +1869,7 @@ render();
   }
   function getChampion(org,w){
     try{
-      const id=window.s?.titles?.[org]?.[w];
+      const id=s?.titles?.[org]?.[w];
       if(id && typeof findById==='function'){
         const f=findById(id);
         if(f && f.org===org && f.weight===w && !f.retired)return f;
@@ -1879,8 +1879,8 @@ render();
       pool.sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a)));
       const f=pool[0];
       window.s.titles=window.s.titles||{};
-      window.s.titles[org]=window.s.titles[org]||{};
-      window.s.titles[org][w]=f.id;
+      s.titles[org]=s.titles[org]||{};
+      s.titles[org][w]=f.id;
       f.title={org,weight:w};
       return f;
     }catch(e){return null}
