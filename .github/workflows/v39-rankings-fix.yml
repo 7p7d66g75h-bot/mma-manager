@@ -1,0 +1,119 @@
+name: V39 rankings fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply real rankings fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'MMA_MANAGER_V39_REAL_FIX' in s:
+              raise SystemExit(0)
+          patch=r'''<style id="mma-v39-style">
+          .mma-v39-champion{background:linear-gradient(145deg,#211a09,#0d1015);border:1px solid #80672a;border-radius:10px;padding:12px;margin:10px 0}
+          .mma-v39-champion-title{font-size:10px;letter-spacing:1.5px;color:#d5ae42;font-weight:950}
+          .mma-v39-champion-name{font-size:19px;font-weight:950;margin-top:5px}
+          .mma-v39-champion-meta{font-size:11px;color:#9aa3ad;margin-top:3px}
+          .mma-v39-rankhead{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+          </style>
+          <script id="MMA_MANAGER_V39_REAL_FIX">
+          (function(){
+            'use strict';
+            const BUILD='MMA_MANAGER_V39_REAL_FIX';
+            document.documentElement.dataset.build=BUILD;
+            function esc(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
+            function removeOldChampionUI(){
+              ['championship-v36-box','mm-champion-panel'].forEach(id=>document.getElementById(id)?.remove());
+              document.querySelectorAll('.champ-v36,.mm-champ-panel').forEach(x=>x.remove());
+            }
+            function getChampion(org,w){
+              try{
+                const id=window.s?.titles?.[org]?.[w];
+                if(id && typeof findById==='function'){
+                  const f=findById(id);
+                  if(f && f.org===org && f.weight===w && !f.retired)return f;
+                }
+                const pool=(typeof allPool==='function'?allPool():[]).filter(f=>f.org===org&&f.weight===w&&!f.retired);
+                if(!pool.length)return null;
+                pool.sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a)));
+                const f=pool[0];
+                window.s.titles=window.s.titles||{};
+                window.s.titles[org]=window.s.titles[org]||{};
+                window.s.titles[org][w]=f.id;
+                f.title={org,weight:w};
+                return f;
+              }catch(e){return null}
+            }
+            function fighterRankRows(arr,org,w,limit){
+              let rows=Array.isArray(arr)?arr.slice():[];
+              const champ=getChampion(org,w);
+              if(champ)rows=rows.filter(r=>r.id!==champ.id);
+              rows=rows.slice(0,limit||15);
+              return rows.map((r,i)=>{
+                const f=typeof findById==='function'?findById(r.id):null;
+                return `<div class="rankline" data-profile-rank="${esc(r.id)}" role="button"><div class="ranknum ${i<3?'top':''}">${i+1}</div><div><b>${esc(f?.flag||'🌍')} ${esc(r.name)}</b><div class="muted">${esc(f?.country||'')} • ${esc(f?.org||'Свободный агент')} • ${esc(f?.weight||w)} • ${f?rec(f):''}</div></div><b class="gold">${r.score}</b><button data-profile-rank-btn="${esc(r.id)}">Профиль</button></div>`;
+              }).join('');
+            }
+            function realRankings(){
+              try{
+                removeOldChampionUI();
+                updateRankings();
+                const leagues=ORGS.filter(o=>o.name!=='DWCS').sort((a,b)=>b.level-a.level);
+                const active=s.rankLeague||'__WORLD__', org=leagues.find(x=>x.name===active), showLeagues=s.rankSection==='leagues';
+                let tabs=`<button data-ranksection="rankings" class="${!showLeagues?'primary':''}">РЕЙТИНГИ</button><button data-ranksection="leagues" class="${showLeagues?'primary':''}">ЛИГИ</button>`;
+                let html=`<section class="panel"><div class="eyebrow">RANKINGS & PROMOTIONS</div><div class="section-head"><div class="title" style="margin:5px 0 0">Рейтинги</div><div class="rank-meta">АКТИВНЫЕ БОЙЦЫ <b>${activeWorldCount().toLocaleString('ru-RU')}</b></div></div><div class="actions">${tabs}</div></section>`;
+                if(showLeagues){
+                  html+=leagues.map(o=>{let leaders=allPool().filter(f=>f.org===o.name&&!f.retired).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,5),unlocked=(s.managerRating||30)>=o.unlock;return `<section class="panel league-card"><div class="section-head"><h3>${esc(o.name)}</h3><span>${esc(o.short)} • <b>${allPool().filter(f=>f.org===o.name&&!f.retired).length}</b> бойцов</span></div><div class="tags"><span class="tag">${esc(o.region)}</span><span class="tag">REP ${o.unlock}</span><span class="tag">${unlocked?'ДОСТУПНА':'ЗАКРЫТА'}</span></div><div class="smallgrid"><div><small>Уровень</small><b>${o.level}/10</b></div><div><small>Гонорар от</small><b>$${o.purse.toLocaleString('ru-RU')}</b></div><div><small>Бойцов</small><b>${allPool().filter(f=>f.org===o.name&&!f.retired).length}</b></div><div><small>ТОП</small><b>${esc(leaders[0]?.name||'—')}</b></div></div><div class="actions"><button data-league-rank="${esc(o.name)}">Рейтинг</button>${unlocked?`<button class="primary" data-league-roster="${esc(o.name)}">Матчмейкинг</button>`:''}</div></section>`}).join('');
+                }else{
+                  let tabs2=`<button data-rankleague="__WORLD__" class="${!org?'primary':''}">МИРОВОЙ TOP 300</button>`+leagues.map(o=>`<button data-rankleague="${esc(o.name)}" class="${org?.name===o.name?'primary':''}">${esc(o.short)}</button>`).join('');
+                  html+=`<section class="panel"><div class="actions">${tabs2}</div></section>`;
+                  if(!org){
+                    html+=`<section class="panel"><div class="eyebrow">WORLD P4P</div><div class="title">Мировой P4P TOP 15</div>${rankingRows(s.p4p||[],15)}</section><section class="panel"><div class="title">Мировой рейтинг TOP 300</div>${rankingRows(s.globalTop300||[],300)}</section>`;
+                  }else{
+                    html+=`<section class="panel"><div class="eyebrow">${esc(org.short)}</div><div class="title">${esc(org.name)} P4P TOP 15</div>${rankingRows(s.p4pByOrg?.[org.name]||[],15)}</section><section class="panel"><div class="title">${esc(org.name)} — дивизионы</div>`;
+                    for(const w of WEIGHTS){
+                      const arr=s.rankingsByOrg?.[org.name]?.[w]||[];
+                      const champ=getChampion(org.name,w);
+                      html+=`<div style="margin-top:12px"><div class="section-head"><h3>${esc(w)}</h3><span>РЕЙТИНГ</span></div>${champ?`<div class="mma-v39-champion"><div class="mma-v39-champion-title">🏆 ЧЕМПИОН</div><div class="mma-v39-champion-name">${esc(champ.flag||'🌍')} ${esc(champ.name)}</div><div class="mma-v39-champion-meta">${esc(champ.country||'')} • ${esc(champ.org||org.name)} • ${esc(w)} • ${rec(champ)}</div></div>`:''}<div class="mma-v39-rankhead"><b>ПРЕТЕНДЕНТЫ</b><span class="muted">№1 ≠ чемпион</span></div>${fighterRankRows(arr,org.name,w,15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`;
+                    }
+                    html+=`</section>`;
+                  }
+                }
+                document.getElementById('content').innerHTML=html;
+                document.querySelectorAll('[data-ranksection]').forEach(x=>x.onclick=()=>{s.rankSection=x.dataset.ranksection;save();realRankings()});
+                document.querySelectorAll('[data-rankleague]').forEach(x=>x.onclick=()=>{s.rankLeague=x.dataset.rankleague;s.rankSection='rankings';save();realRankings()});
+                document.querySelectorAll('[data-league-rank]').forEach(x=>x.onclick=()=>{s.rankLeague=x.dataset.leagueRank;s.rankSection='rankings';save();realRankings()});
+                document.querySelectorAll('[data-league-roster]').forEach(x=>x.onclick=()=>page('roster'));
+                document.querySelectorAll('[data-profile-rank-btn]').forEach(x=>x.onclick=e=>{e.stopPropagation();profile(findById(x.dataset.profileRankBtn),'rankings')});
+              }catch(e){console.error('V39 rankings error',e);}
+            }
+            window.rankings=realRankings;
+            removeOldChampionUI();
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',removeOldChampionUI);else setTimeout(removeOldChampionUI,0);
+            try{localStorage.setItem('mma_manager_build',BUILD)}catch(e){}
+          })();
+          </script>'''
+          s=s.replace('</body>',patch+'\n</body>')
+          s=s.replace('MMA_MANAGER_V38','MMA_MANAGER_V39')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "V39: real rankings champion separation [skip ci]"
+          git push
