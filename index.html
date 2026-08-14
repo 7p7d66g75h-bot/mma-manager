@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V35";
+  const BUILD="MMA_MANAGER_V36";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V35 • Road to Champion</title>MMA Manager — Road to Champion</title>
+<title>MMA Manager V36 • Road to Champion</title>MMA Manager — Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -194,7 +194,11 @@ html[data-build="MMA_MANAGER_V31"]::before{
 }
 </style><style id="v30-contract-cleanup">
 [data-manage-terminate],[data-terminate-contract],[data-cancel-term],[data-confirm-term],.contract-terminate{display:none!important}
-</style></head>
+</style>
+<style id="championship-v36-css">
+.champ-v36{margin:0 0 10px;background:linear-gradient(145deg,#211b0f,#0d1014);border:1px solid #80672a;border-radius:10px;padding:12px}.champ-v36-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}.champ-v36-title{font-size:16px;font-weight:950}.champ-v36-sub{font-size:10px;color:#8e98a4}.champ-v36-grid{display:grid;grid-template-columns:1fr;gap:7px}.champ-v36-card{background:#101419;border:1px solid #37312a;border-radius:8px;padding:9px}.champ-v36-org{font-size:9px;color:#9da6af;letter-spacing:1px;font-weight:900}.champ-v36-name{font-size:14px;font-weight:950;margin-top:3px}.champ-v36-meta{font-size:10px;color:#8e98a4;margin-top:2px}.champ-v36-belt{float:right;font-size:21px}.champ-v36-number{color:#d5ae42;font-weight:950;margin-right:5px}.champ-v36-contender{display:inline-block;margin-top:5px;font-size:9px;color:#b9c0c8;background:#20262e;border:1px solid #303740;border-radius:4px;padding:3px 5px}
+</style>
+</head>
 <body>
 <div class="app">
 <header class="topbar"><div class="toprow"><div class="brand">MMA <span>MANAGER</span></div><div class="date"><span id="topDate"></span><br><span id="topMoney" class="money"></span> • <span id="topRep" class="rep"></span> • <span id="topMgr" class="gold"></span> <button id="topSkipWeek" class="top-skip">+7</button></div></div></header>
@@ -1686,6 +1690,42 @@ function closeModal(){document.getElementById("modal").classList.remove("open");
 document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 window.addEventListener("pagehide",save);window.addEventListener("beforeunload",save);
 render();
+</script>
+
+<script id="championship-v36-js">
+(function(){
+ const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+ function activeFighters(){ try{return typeof allPool==='function'?allPool().filter(f=>f&&!f.retired):[]}catch(e){return []} }
+ function weightOf(f){ return f.weightClass||f.weight||f.division||f.category||'Open'; }
+ function orgOf(f){ return f.org||f.organization||'Free Agent'; }
+ function ratingOf(f){ try{return Number(f.rating||f.ovr||f.overall||((typeof ovr==='function')?ovr(f):0))||0}catch(e){return 0} }
+ function champions(){
+   const fs=activeFighters(), groups=new Map();
+   for(const f of fs){ const org=orgOf(f); if(!org||org==='Free Agent')continue; const key=org+'|'+weightOf(f); const old=groups.get(key); if(!old||ratingOf(f)>ratingOf(old))groups.set(key,f); }
+   return [...groups.entries()].map(([key,f])=>({key,org:orgOf(f),weight:weightOf(f),f})).sort((a,b)=>a.org.localeCompare(b.org)||String(a.weight).localeCompare(String(b.weight)));
+ }
+ function inject(){
+   try{
+     const root=document.querySelector('.content'); if(!root)return;
+     const txt=(root.innerText||'').toLowerCase();
+     const isRank=txt.includes('рейтин') || root.querySelector('.rankline');
+     if(!isRank)return;
+     let box=document.getElementById('championship-v36-box');
+     if(!box){box=document.createElement('div');box.id='championship-v36-box';root.prepend(box)}
+     const cs=champions();
+     const top=cs.slice(0,12);
+     box.className='champ-v36';
+     box.innerHTML='<div class="champ-v36-head"><div><div class="champ-v36-title">🏆 ЧЕМПИОНЫ</div><div class="champ-v36-sub">Действующие чемпионы по организациям и весовым</div></div><div class="champ-v36-belt">🏆</div></div><div class="champ-v36-grid">'+top.map((x,i)=>'<div class="champ-v36-card"><span class="champ-v36-number">#'+(i+1)+'</span><span class="champ-v36-org">'+esc(x.org)+'</span><div class="champ-v36-name">🏆 '+esc(x.f.name||x.f.fullName||'Unknown')+'</div><div class="champ-v36-meta">'+esc(x.weight)+' • '+ratingOf(x.f)+'</div><span class="champ-v36-contender">№1 претендент: определяется рейтингом</span></div>').join('')+'</div>';
+   }catch(e){}
+ }
+ function hook(){
+   if(typeof window.render==='function'&&!window.__champV36){
+     const old=window.render; window.render=function(){const r=old.apply(this,arguments);setTimeout(inject,0);return r}; window.__champV36=true;
+   }
+   inject();
+ }
+ setTimeout(hook,250); setTimeout(hook,1000);
+})();
 </script>
 </body>
 </html>
