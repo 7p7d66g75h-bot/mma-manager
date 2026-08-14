@@ -1727,5 +1727,60 @@ render();
  setTimeout(hook,250); setTimeout(hook,1000);
 })();
 </script>
+<!-- CHAMPION_DISPLAY_V37 -->
+<style>
+.mm-champ-panel{background:linear-gradient(145deg,#211a09,#0d1015);border:1px solid #80672a;border-radius:10px;padding:12px;margin-bottom:10px;display:none}
+.mm-champ-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.mm-champ-title{font-weight:950;font-size:15px}.mm-champ-count{font-size:10px;color:#8e98a4}
+.mm-champ-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #493c1d}.mm-champ-row:last-child{border-bottom:0}
+.mm-belt{font-size:23px;width:30px;text-align:center}.mm-champ-name{font-weight:950;flex:1}.mm-champ-meta{font-size:10px;color:#9aa3ad}.mm-champ-badge{font-size:9px;color:#d5ae42;font-weight:950;letter-spacing:.8px}
+.mm-rank-champ{display:inline-flex;align-items:center;gap:4px;margin-left:5px;padding:3px 5px;border-radius:5px;border:1px solid #80672a;background:#211a09;color:#d5ae42;font-size:9px;font-weight:950;vertical-align:middle}
+</style>
+<script>
+(function(){
+  function isRankings(){
+    const t=(document.querySelector('.content')?.innerText||'').toLowerCase();
+    return t.includes('рейтинги');
+  }
+  function addChampions(){
+    const c=document.querySelector('.content'); if(!c||!isRankings()) return;
+    let panel=document.getElementById('mm-champion-panel');
+    if(!panel){
+      panel=document.createElement('div'); panel.id='mm-champion-panel'; panel.className='mm-champ-panel';
+      panel.innerHTML='<div class="mm-champ-head"><div class="mm-champ-title">🏆 ЧЕМПИОНЫ</div><div class="mm-champ-count">ДЕЙСТВУЮЩИЕ ЧЕМПИОНЫ</div></div><div id="mm-champion-list"></div>';
+      c.prepend(panel);
+    }
+    panel.style.display='block';
+    const rows=[...c.querySelectorAll('.rankline')];
+    const first=[]; const seen=new Set();
+    for(const r of rows){
+      const n=(r.querySelector('.ranknum')?.innerText||'').trim();
+      if(n!=='1') continue;
+      const txt=(r.innerText||'').replace(/\s+/g,' ').trim();
+      if(!txt||seen.has(txt)) continue;
+      seen.add(txt); first.push(r);
+    }
+    const list=document.getElementById('mm-champion-list');
+    if(!list)return;
+    list.innerHTML='';
+    if(!first.length){list.innerHTML='<div class="mm-champ-meta">Выбери организацию и весовую категорию — чемпион будет показан здесь.</div>';return;}
+    first.slice(0,12).forEach(r=>{
+      if(!r.querySelector('.mm-rank-champ')){
+        const name=r.querySelector('.fighter-name')||r.querySelector('.rankline > div:nth-child(2)');
+        if(name){const b=document.createElement('span');b.className='mm-rank-champ';b.textContent='🏆 CHAMPION';name.appendChild(b)}
+      }
+      const row=document.createElement('div');row.className='mm-champ-row';
+      const text=(r.innerText||'').replace(/\s+/g,' ').trim();
+      row.innerHTML='<div class="mm-belt">🏆</div><div class="mm-champ-name">'+text.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div><div class="mm-champ-badge">CHAMPION</div>';
+      list.appendChild(row);
+    });
+  }
+  let timer=0;
+  const obs=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(addChampions,80)});
+  obs.observe(document.body,{childList:true,subtree:true});
+  document.addEventListener('click',()=>setTimeout(addChampions,100));
+  setTimeout(addChampions,500);
+})();
+</script>
 </body>
 </html>
