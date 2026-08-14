@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V26";
+  const BUILD="MMA_MANAGER_V27";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V26 • Road to Champion</title>MMA Manager — Road to Champion</title>
+<title>MMA Manager V27 • Road to Champion</title>MMA Manager — Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -187,10 +187,18 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
  opacity:.72!important;
 }
 </style><style id="build-v24">
-html[data-build="MMA_MANAGER_V26"]::before{
+html[data-build="MMA_MANAGER_V27"]::before{
   content:"";
   display:none;
 }
+</style><style id="contract-ui-v27">
+[data-manage-terminate],
+[data-terminate-contract],
+[data-cancel-term],
+[data-confirm-term],
+.contract-terminate,
+.sheet-actions:has([data-cancel-term]),
+.sheet-actions:has([data-confirm-term]){display:none!important}
 </style></head>
 <body>
 <div class="app">
@@ -966,7 +974,7 @@ function market(){
  document.querySelectorAll("[data-negotiate]").forEach(x=>x.onclick=()=>negotiate(list[+x.dataset.negotiate]));
  document.querySelector("[data-refresh-market]").onclick=()=>{s.marketPool=null;s.marketRefresh=0;save();market()};
 }
-function manageFighter(f){if(!f)return;document.getElementById("modal").classList.add("open");const ac=f.agencyContract,status=ac?(ac.fightsLeft>0?`Осталось ${ac.fightsLeft}/${ac.length} боёв`:"СРОК ИСТЁК"):"Нет агентского контракта";document.getElementById("sheet").innerHTML=`<div class="eyebrow">УПРАВЛЕНИЕ БОЙЦОМ</div><div class="title">${f.flag||"🌍"} ${f.name}</div><div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div><section class="panel"><div class="row"><span>Статус</span><b>В твоём агентстве</b></div><div class="row"><span>Агентский контракт</span><b>${status}</b></div>${ac?`<div class="row"><span>Продление</span><b>$${(ac.renewalFee||0).toLocaleString("ru-RU")}</b></div>`:""}<div class="row"><span>Лига</span><b>${f.contract?`${f.contract.org} • ${f.contract.fightsLeft}/${f.contract.length}`:"Свободен"}</b></div></section><section class="panel"><h3>Дела бойца</h3><div class="actions"><button data-fighter-fight>Организовать бой</button><button data-fighter-terms>${ac&&ac.fightsLeft>0?"Изменить условия":"Продлить контракт"}</button>${f.contract?`<button class="danger" data-manage-terminate>Расторгнуть контракт с лигой</button>`:""}</div></section><div class="sheet-actions"><button data-manage-close>Закрыть</button></div>`;document.querySelector("[data-manage-close]").onclick=closeModal;document.querySelector("[data-fighter-fight]").onclick=()=>{closeModal();page("events")};document.querySelector("[data-fighter-terms]").onclick=()=>{if(ac&&ac.fightsLeft>0)showAgencyContractTerms(f);else renewAgencyContract(f)};let t=document.querySelector("[data-manage-terminate]");if(t)t.onclick=()=>{closeModal();document.querySelector(`[data-terminate-contract="${f.id}"]`)?.click()}}
+function manageFighter(f){if(!f)return;document.getElementById("modal").classList.add("open");const ac=f.agencyContract,status=ac?(ac.fightsLeft>0?`Осталось ${ac.fightsLeft}/${ac.length} боёв`:"СРОК ИСТЁК"):"Нет агентского контракта";document.getElementById("sheet").innerHTML=`<div class="eyebrow">УПРАВЛЕНИЕ БОЙЦОМ</div><div class="title">${f.flag||"🌍"} ${f.name}</div><div class="muted">${f.country} • ${f.weight} • ${f.style} • ${rec(f)} • OVR ${ovr(f)}</div><section class="panel"><div class="row"><span>Статус</span><b>В твоём агентстве</b></div><div class="row"><span>Агентский контракт</span><b>${status}</b></div>${ac?`<div class="row"><span>Продление</span><b>$${(ac.renewalFee||0).toLocaleString("ru-RU")}</b></div>`:""}<div class="row"><span>Лига</span><b>${f.contract?`${f.contract.org} • ${f.contract.fightsLeft}/${f.contract.length}`:"Свободен"}</b></div></section><section class="panel"><h3>Дела бойца</h3><div class="actions"><button data-fighter-fight>Организовать бой</button><button data-fighter-terms>${ac&&ac.fightsLeft>0?"Изменить условия":"Продлить контракт"}</button></div></section><div class="sheet-actions"><button data-manage-close>Закрыть</button></div>`;document.querySelector("[data-manage-close]").onclick=closeModal;document.querySelector("[data-fighter-fight]").onclick=()=>{closeModal();page("events")};document.querySelector("[data-fighter-terms]").onclick=()=>{if(ac&&ac.fightsLeft>0)showAgencyContractTerms(f);else renewAgencyContract(f)};let t=document.querySelector("[data-manage-terminate]");if(t)t.onclick=()=>{closeModal();document.querySelector(`[data-terminate-contract="${f.id}"]`)?.click()}}
 function negotiate(f){
  if(s.fighters.some(x=>x.id===f.id)){manageFighter(f);return}
 
@@ -1068,7 +1076,7 @@ function profile(f,back="roster"){
  <div class="hero"><div class="avatar">${emoji(f.style)}</div><div class="hero-main"><h2>${f.name}</h2><div class="muted">${f.age} лет • ${f.weight} • ${f.style}</div><div class="muted">${org} • OVR ${ovr(f)} • #${getPos(f)}</div></div><div class="ovr">${Math.round(f.rating||ovr(f))}</div></div>
  <section class="panel"><div class="notice-strip">${status}</div><div class="smallgrid"><div><small>Рекорд</small><b>${rec(f)}</b></div><div><small>Популярность</small><b>${f.popularity||0}</b></div><div><small>Потенциал</small><b>${f.potential||0}</b></div><div><small>Статус</small><b>${f.careerStage||"Prospect"}</b></div></div></section>
  <section class="panel"><div class="section-head"><h3>Статистика побед</h3><span>${rs.total} побед</span></div><div class="smallgrid"><div><small>KO/TKO</small><b>${rs.ko} • ${rs.pko}%</b></div><div><small>Сабмишны</small><b>${rs.sub} • ${rs.psub}%</b></div><div><small>Решения</small><b>${rs.dec} • ${rs.pdec}%</b></div><div><small>Досрочно</small><b>${rs.total?Math.round((rs.ko+rs.sub)/rs.total*100):0}%</b></div></div></section>
- <section class="panel"><div class="section-head"><h3>Контракт</h3><span>${f.contract?`${f.contract.fightsLeft}/${f.contract.length}`:"FREE AGENT"}</span></div>${f.contract?`<button data-terminate-contract="${f.id}" class="danger contract-terminate">Расторгнуть контракт</button>`:""}${f.leagueOffers?.length?`<div class="notice-strip">Есть ${f.leagueOffers.length} предложения от лиг.</div>`:""}${f.contract?`<div class="row"><span>Организация</span><b>${f.contract.org}</b></div><div class="row"><span>Гонорар</span><b>$${(f.contract.salary||0).toLocaleString("ru-RU")}</b></div>`:`<div class="muted">У бойца нет менеджера. Можно начать переговоры прямо из профиля.</div>`}</section>
+ <section class="panel"><div class="section-head"><h3>Контракт</h3><span>${f.contract?`${f.contract.fightsLeft}/${f.contract.length}`:"FREE AGENT"}</span></div>${f.leagueOffers?.length?`<div class="notice-strip">Есть ${f.leagueOffers.length} предложения от лиг.</div>`:""}${f.contract?`<div class="row"><span>Организация</span><b>${f.contract.org}</b></div><div class="row"><span>Гонорар</span><b>$${(f.contract.salary||0).toLocaleString("ru-RU")}</b></div>`:`<div class="muted">У бойца нет менеджера. Можно начать переговоры прямо из профиля.</div>`}</section>
  <section class="panel"><div class="section-head"><h3>Последние бои</h3><span>${(f.history||[]).length}</span></div>${history||`<div class="muted">Истории боёв пока нет.</div>`}</section>
  <div class="sheet-actions"><button data-back-profile>Назад</button>${!f.retired?`<button class="primary" data-profile-negotiate>${s.fighters.some(x=>x.id===f.id)?"Вести дела":"Вести дела"}</button>`:""}${f.contract&&!f.nextFight?`<button class="primary" data-profile-match>Организовать бой</button>`:""}${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;
  document.querySelector("[data-back-profile]").onclick=()=>{closeModal();if(back==="market")market();else if(back==="match")matchmake();else if(back==="rankings")rankings();else if(back==="event")newsCenter();else if(back==="prefight")fight();else page("roster")};
