@@ -1,13 +1,10 @@
 name: Apply V35 rankings and roster fix
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,18 +17,13 @@ jobs:
           s=p.read_text(encoding='utf-8')
           s=s.replace('MMA_MANAGER_V33','MMA_MANAGER_V35')
           s=s.replace('MMA Manager V33 • Road to Champion','MMA Manager V35 • Road to Champion')
-          # Replace organization quotas regardless of formatting/previous values.
           s=re.sub(r'"UFC":\d+,"PFL":\d+,"ONE Championship":\d+,"RIZIN":\d+,"ACA":\d+,\s*"LFA":\d+,"KSW":\d+,"Cage Warriors":\d+,"Ares FC":\d+,"BRAVE CF":\d+', '"UFC":650,"PFL":350,"ONE Championship":400,"RIZIN":380,"ACA":360,\n  "LFA":420,"KSW":380,"Cage Warriors":350,"Ares FC":330,"BRAVE CF":380', s, count=1)
-          # Add a real unique active-fighter counter if it is not already present.
           if 'function activeWorldCount()' not in s:
               marker='function rankings(){'
               insert='''function activeWorldCount(){\n const seen=new Set();\n for(const f of allPool()) if(f&&!f.retired&&f.id!=null) seen.add(f.id);\n return seen.size;\n}\nfunction ufcRosterCount(){\n return allPool().filter(f=>f&&!f.retired&&f.org==="UFC").length;\n}\n'''
               if marker not in s: raise SystemExit('rankings marker missing')
               s=s.replace(marker,insert+marker,1)
-          # Ensure the rankings header always contains the counter.
           s=re.sub(r'<div class="rank-meta">.*?</div>', '<div class="rank-meta">АКТИВНЫЕ БОЙЦЫ <b>${activeWorldCount().toLocaleString("ru-RU")}</b></div>', s, count=1)
-          # Add an actual UFC roster indicator in the league list if the league card uses the name.
-          s=s.replace('const BUILD="MMA_MANAGER_V35"','const BUILD="MMA_MANAGER_V35"')
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
