@@ -1,0 +1,38 @@
+name: V40 rankings title state
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix V39 title state access
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'MMA_MANAGER_V40_TITLE_STATE' in s:
+              raise SystemExit(0)
+          s=s.replace("const id=window.s?.titles?.[org]?.[w];", "const id=s?.titles?.[org]?.[w];")
+          s=s.replace("window.s.titles=s.titles||{};", "s.titles=s.titles||{};")
+          s=s.replace("window.s.titles[org]=window.s.titles[org]||{};", "s.titles[org]=s.titles[org]||{};")
+          s=s.replace("window.s.titles[org][w]=f.id;", "s.titles[org][w]=f.id;")
+          s=s.replace("const BUILD='MMA_MANAGER_V39_REAL_FIX';", "const BUILD='MMA_MANAGER_V40_TITLE_STATE';")
+          s=s.replace('MMA_MANAGER_V39_REAL_FIX','MMA_MANAGER_V40_TITLE_STATE')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "V40: fix title state access [skip ci]"
+          git push
