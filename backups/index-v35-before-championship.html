@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V36";
+  const BUILD="MMA_MANAGER_V35";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V36 • Road to Champion</title>
+<title>MMA Manager V35 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -94,8 +94,6 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 }
 .round-action{margin:10px 0 6px;padding:10px 12px;border:1px solid #8b6a2e;border-radius:9px;background:#17130a;text-align:center;font-weight:1000;letter-spacing:.8px}.fight-controls #nextRoundBtn{grid-column:1/-1!important;min-height:64px!important;font-size:18px!important;font-weight:1000!important;position:static;z-index:50;box-shadow:0 0 0 2px rgba(214,169,58,.45),0 12px 30px rgba(0,0,0,.55)}.fight-canvas-wrap{box-shadow:inset 0 0 40px rgba(0,0,0,.35)}<style id="fight-zone-ui">
 .zone{font-size:9px;text-align:left;margin:4px 0}.zone span{display:flex;justify-content:space-between;gap:8px}.zone i{display:block;height:4px;background:#30343a;border-radius:4px;overflow:hidden}.zone em{display:block;height:100%;background:#c9a44b}.fightbox .corner{min-width:0}
-
-.championship-card{background:linear-gradient(145deg,#201a0d,#0f1115);border:1px solid #80672a;border-radius:10px;padding:12px;margin-top:8px}.championship-card .belt-mini{font-size:30px;float:left;margin-right:10px}.champion-name{font-size:16px;font-weight:950}.champion-meta{font-size:10px;color:#9da6af;margin-top:3px}.title-tag{display:inline-block;margin-top:5px;padding:3px 6px;border:1px solid #80672a;border-radius:5px;color:#d5ae42;font-size:9px;font-weight:900}.title-fight-tag{display:inline-block;padding:4px 7px;border-radius:5px;background:#322915;border:1px solid #80672a;color:#e1bd52;font-size:10px;font-weight:950}
 </style><style id="next-round-fix">
 .next-round-ready{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1/-1!important}
 
@@ -595,17 +593,13 @@ function managerReputationText(){
  return "Начинающий менеджер: доверие рынка пока низкое.";
 }
 
-const OFFICIAL_PROMOTIONS=ORGS.filter(o=>o.name!=="DWCS").map(o=>o.name);
+const OFFICIAL_PROMOTIONS=["UFC","PFL","ONE Championship","RIZIN"];
 const TITLE_NAMES={};
-function promotionForFighter(f){return f?.org||null}
-function titleFor(org,w){return `${org} ${w} Champion`}
-function ensureTitleState(){s.titles=s.titles||{};for(const org of OFFICIAL_PROMOTIONS){s.titles[org]=s.titles[org]||{};for(const w of WEIGHTS){const id=s.titles[org][w],holder=id?findById(id):null;if(holder&&(holder.retired||holder.org!==org||holder.weight!==w)){if(holder.title?.org===org&&holder.title?.weight===w)holder.title=null;delete s.titles[org][w];}}}}
-function titleHolder(org,w){ensureTitleState();return s.titles?.[org]?.[w]?findById(s.titles[org][w]):null}
-function setTitle(org,w,f,reason=""){if(!f)return;ensureTitleState();const old=titleHolder(org,w);if(old&&old.id!==f.id){old.formerChampion={org,defenses:old.titleDefenses||0,reason};old.title=null;}s.titles[org][w]=f.id;f.title={org,weight:w};f.titleDefenses=f.titleDefenses||0;f.careerStage="Champion";}
-function clearTitle(org,w){ensureTitleState();const old=titleHolder(org,w);if(old&&old.title?.org===org&&old.title?.weight===w)old.title=null;if(s.titles?.[org])delete s.titles[org][w];}
-function orgRank(f,org){if(!f)return 999;const arr=s.rankingsByOrg?.[org]?.[f.weight]||[];const x=arr.find(r=>r.id===f.id);return x?.rank||999;}
-function isTitleFightPair(f,o,org){if(!f||!o||!org)return false;const holder=titleHolder(org,f.weight);if(holder&&(holder.id===f.id||holder.id===o.id))return true;if(!holder){const rf=orgRank(f,org),ro=orgRank(o,org);return rf<=2&&ro<=2;}return false;}
-function championshipLabel(f){return f?.title?`🏆 ЧЕМПИОН • ${f.title.org}`:"";}
+function promotionForFighter(f){return f.org||ORGS[Math.max(0,Math.min(ORGS.length-1,(f.orgLevel||1)-1))].name}
+function titleFor(org,w){return (org+" "+w+" Champion").replace("Champion Champion","Champion")}
+function titleHolder(org,w){return s.titles?.[org]?.[w]||null}
+function setTitle(org,w,f){s.titles=s.titles||{};s.titles[org]=s.titles[org]||{};s.titles[org][w]=f.id;f.title={org,weight:w};}
+function clearTitle(org,w){if(s.titles?.[org])delete s.titles[org][w]}
 function injuryRisk(f){
  let load=f.fatigue||0,age=f.age||27;
  let chance=Math.max(0.01,0.015+load*.0007+Math.max(0,age-31)*.002);
@@ -620,12 +614,13 @@ function applyPostFightCareer(f,win){
  if(f.age>=34){f.str=Math.max(20,f.str-1);f.speed=Math.max(20,f.speed-1)}
 }
 function updateTitlesAfterFight(f,o,win,n){
- const org=n.org,w=f.weight;ensureTitleState();const holder=titleHolder(org,w);const titleFight=!!n.titleFight||(holder&&(holder.id===f.id||holder.id===o.id));if(!titleFight)return;
- if(holder&&holder.id===f.id){if(win){f.titleDefenses=(f.titleDefenses||0)+1;f.title={org,weight:w};f.careerStage="Champion";logNews(`${f.name} защитил титул ${titleFor(org,w)}. Защит: ${f.titleDefenses}.`,`TITLE`);}else{clearTitle(org,w);o.titleDefenses=0;setTitle(org,w,o,"Победа над чемпионом");logNews(`${o.name} стал новым чемпионом ${org} в весе ${w}.`,`TITLE`);}return;}
- if(holder&&holder.id===o.id){if(win){clearTitle(org,w);f.titleDefenses=0;setTitle(org,w,f,"Победа над чемпионом");logNews(`${f.name} завоевал титул ${titleFor(org,w)}.`,`TITLE`);}return;}
- const winner=win?f:o;clearTitle(org,w);winner.titleDefenses=0;setTitle(org,w,winner,"Вакантный титул");logNews(`${winner.name} завоевал вакантный титул ${titleFor(org,w)}.`,`TITLE`);
+ let org=n.org,w=f.weight;
+ let rankF=getPos(f),rankO=getPos(o);
+ if(rankF<=1 && win && rankO<=5){
+   setTitle(org,w,f);f.careerStage="Champion";
+   o.title=null;
+ }
 }
-
 function processInjuries(){
  (s.injuryReserve||[]).forEach(id=>{let f=findById(id);if(!f?.injury)return;f.injury.weeks--;if(f.injury.weeks<=0){notify(`${f.name} вернулся после травмы.`);f.injury=null}});
  s.injuryReserve=(s.injuryReserve||[]).filter(id=>findById(id)?.injury);
@@ -706,7 +701,7 @@ function normalizeSave(){
    if(!f.worldNextFightDay)f.worldNextFightDay=s.day+rand(21,90);
    if(f.org==="DWCS")f.org=randomWorldOrg(f).name;
  });
- if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();
+ if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();
 }
 function render(){
   renderTop();
@@ -775,7 +770,6 @@ document.getElementById("content").innerHTML=`<section class="panel"><div class=
 function rankingRows(arr,limit=15){
  return arr.slice(0,limit).map((r,i)=>{let f=findById(r.id);return `<div class="rankline" data-profile-rank="${r.id}" role="button"><div class="ranknum ${i<3?"top":""}">${i+1}</div><div><b>${f?.flag||"🌍"} ${r.name}</b><div class="muted">${f?.country||""} • ${f?.org||"Свободный агент"} • ${f?.weight||""} • ${f?rec(f):""}</div></div><b class="gold">${r.score}</b><button data-profile-rank-btn="${r.id}">Профиль</button></div>`}).join("");
 }
-function championCard(org,w){const h=titleHolder(org,w);if(!h)return `<div class="championship-card"><span class="belt-mini">🏆</span><div class="champion-name">ВАКАНТНО</div><div class="champion-meta">${org} • ${w} • титул ждёт нового обладателя</div></div>`;return `<div class="championship-card"><span class="belt-mini">🏆</span><div class="champion-name">${h.name}</div><div class="champion-meta">${org} • ${w} • ${rec(h)}</div><span class="title-tag">ЧЕМПИОН • ${h.titleDefenses||0} защит</span></div>`;}
 function rankings(){
  updateRankings();
  let leagues=ORGS.filter(o=>o.name!=="DWCS").sort((a,b)=>b.level-a.level);
@@ -1158,7 +1152,7 @@ document.getElementById("modal").classList.add("open");document.getElementById("
 document.querySelector("[data-close]").onclick=closeModal;document.getElementById("createGo").onclick=()=>{let f=genFighter(document.getElementById("nfName").value||"Новый боец",document.getElementById("nfWeight").value,document.getElementById("nfStyle").value,rand(58,68));s.world.push(f);save();market()}}
 function profile(f,back="roster"){
  if(!f){toast("Боец не найден");return}
- let rs=recordStats(f),org=f.org||"Свободный агент",champ=f.title||null,former=f.formerChampion||null,defenses=f.titleDefenses||0; if(org!=="Свободный агент"){const th=titleHolder(org,f.weight);if(th?.id===f.id)champ={org,weight:f.weight};}
+ let rs=recordStats(f),org=f.org||"Свободный агент",champ=f.title,former=f.formerChampion||null,defenses=f.titleDefenses||0;
  let status=champ?`🏆 ЧЕМПИОН • ${champ.org} • защит: ${defenses}`:former?`ЭКС-ЧЕМПИОН • ${former.org} • защит: ${former.defenses||0}`:"Без чемпионского статуса";
  let history=(f.history||[]).slice(0,10).map(h=>`<div class="row"><span><b>${h.event||"Турнир"}</b><br><span class="muted">${h.date||dateLabel(h.day)} • ${h.org||f.org||"—"} • ${h.venue||"Арена"}</span><br><span class="muted">${h.card||"MAIN CARD"} • ${h.status||"Завершён"} • vs ${h.opponent||"—"} • ${h.method||"Decision"}${h.round?` • R${h.round}`:""}</span></span><b class="${h.result==="W"?"gold":""}">${h.result==="W"?"ПОБЕДА":"ПОРАЖЕНИЕ"}</b></div>`).join("");
  document.getElementById("modal").classList.add("open");
@@ -1208,7 +1202,7 @@ function matchmake(){
      let titleFight=isChamp&&rp<=3;
      let fiveRounds=(titleFight||((ranked&&fp<=5&&rp<=5&&org.level>=8)));
      let terms=contractTerms(f,org);
-     rows.push({titleFight:isTitleFightPair(f,o,org.name),opponent:o,org:org.name,rounds:fiveRounds?5:3,date:s.day+rand(14,42),purse:Math.max(terms.purse,Math.round(terms.purse*.45)),rank:rp,event:choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99),ranked,type:titleFight?"ТИТУЛЬНЫЙ БОЙ":(ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОБЫЧНЫЙ БОЙ"),titleFight});
+     rows.push({opponent:o,org:org.name,rounds:fiveRounds?5:3,date:s.day+rand(14,42),purse:Math.max(terms.purse,Math.round(terms.purse*.45)),rank:rp,event:choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99),ranked,type:titleFight?"ТИТУЛЬНЫЙ БОЙ":(ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОБЫЧНЫЙ БОЙ"),titleFight});
    });
  });
  let candidates=rows.slice(0,2);
@@ -1674,7 +1668,7 @@ document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.datase
  raf=requestAnimationFrame(frame)
 }
 
-function logNews(text,type="NEWS"){s.news.unshift({title:type==="CARD"?"КАРД":type==="RANKINGS"?"РЕЙТИНГИ":type==="DWCS"?"DWCS":type==="TRANSFER"?"ПЕРЕХОДЫ":type==="TITLE"?"ТИТУЛЫ":"НОВОСТИ",text,day:s.day});s.news=s.news.slice(0,30)}
+function logNews(text,type="NEWS"){s.news.unshift({title:type==="CARD"?"КАРД":type==="RANKINGS"?"РЕЙТИНГИ":type==="DWCS"?"DWCS":type==="TRANSFER"?"ПЕРЕХОДЫ":"НОВОСТИ",text,day:s.day});s.news=s.news.slice(0,30)}
 function notify(text){logNews(text);toast(text)}
 function updateManagerMetrics(win){
  s.managerFights=(s.managerFights||0)+1;
