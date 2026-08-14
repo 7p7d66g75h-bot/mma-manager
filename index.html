@@ -91,6 +91,41 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 .fight-controls #changePlanBtn,.fight-controls #fightStats{grid-column:auto!important}
 .fight-controls #nextRoundBtn,.fight-controls #stopFight{grid-column:1/-1!important;min-height:60px!important}
 .fight-controls #nextRoundBtn{font-size:18px!important;font-weight:1000!important}
+</style><style id="result-screen-v21">
+.result-screen{
+ position:fixed!important;
+ inset:0!important;
+ z-index:50000!important;
+ display:flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ padding:24px 16px calc(24px + env(safe-area-inset-bottom))!important;
+ box-sizing:border-box!important;
+ background:radial-gradient(circle at 50% 25%,#252d38 0%,#0a0d12 55%,#050609 100%)!important;
+ overflow:auto!important;
+}
+.result-card{
+ width:min(620px,100%)!important;
+ max-height:calc(100dvh - 40px)!important;
+ overflow:auto!important;
+ box-sizing:border-box!important;
+ border:1px solid #414a56!important;
+ border-radius:22px!important;
+ padding:26px 18px 20px!important;
+ background:linear-gradient(145deg,#171d25,#090c11)!important;
+ box-shadow:0 20px 70px rgba(0,0,0,.75)!important;
+ text-align:center!important;
+}
+.result-kicker{font-size:12px;letter-spacing:3px;color:#9ba5b1;font-weight:1000;margin-bottom:12px}
+.result-stage{font-size:clamp(30px,9vw,52px);line-height:1.05;font-weight:1000;color:#e2bb4d;text-transform:uppercase;min-height:56px;display:flex;align-items:center;justify-content:center}
+.result-round{font-size:15px;color:#aeb7c2;margin-top:8px;opacity:0;transform:translateY(8px);transition:.35s}
+.result-scores{font-size:17px;line-height:1.65;font-weight:900;margin-top:12px;opacity:0;transform:translateY(8px);transition:.35s}
+.result-winner{font-size:clamp(24px,7vw,38px);line-height:1.08;font-weight:1000;color:#f3f5f7;margin-top:16px;overflow-wrap:anywhere;word-break:break-word;opacity:0;transform:translateY(10px);transition:.4s}
+.result-method{font-size:13px;color:#7f8995;margin-top:10px;text-transform:uppercase;letter-spacing:1.5px}
+.result-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
+.result-actions button{min-height:56px;font-weight:1000}
+.result-round.show,.result-scores.show,.result-winner.show,.result-actions .show{opacity:1;transform:none}
+@media(max-width:520px){.result-card{padding:22px 14px 16px;border-radius:18px}.result-actions{grid-template-columns:1fr}.result-stage{font-size:34px}}
 </style></head>
 <body>
 <div class="app">
@@ -1084,46 +1119,69 @@ function roundEnd(){
  logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreLines.join(", ")})`:""}.`);
  updateRankings();save();if(f.leagueOffersPending){f.leagueOffersPending=false;save();}
 
- // Dedicated cinematic result overlay. The method is always shown before the winner.
+ // Dedicated cinematic result overlay. It must sit above the entire fight UI.
  const resultBox=document.getElementById("live");
  const winnerName=win?f.name:o.name;
+
+ // Hide the normal fight controls/canvas while the official result is being announced.
+ document.querySelectorAll(".fight-controls,.fight-canvas-wrap,.actions,.speedText,.live-log").forEach(el=>{
+   if(el && el!==resultBox.parentElement) el.dataset.resultHidden="1";
+ });
+ const controls=document.querySelector(".fight-controls");
+ const canvasWrap=document.querySelector(".fight-canvas-wrap");
+ const speedActions=document.querySelector(".actions");
+ const speedText=document.getElementById("speedText");
+ if(controls)controls.style.display="none";
+ if(canvasWrap)canvasWrap.style.display="none";
+ if(speedActions)speedActions.style.display="none";
+ if(speedText)speedText.style.display="none";
+
+ resultBox.className="result-screen";
  resultBox.innerHTML=`
- <div class="result-cinematic" style="text-align:center;padding:18px 8px">
-   <div id="resultStage" style="font-size:clamp(27px,8vw,42px);font-weight:1000;min-height:52px"></div>
-   <div id="resultRound" style="margin-top:5px;color:#9ca6b1;font-size:13px;opacity:0"></div>
-   <div id="resultScores" style="margin-top:10px;font-size:18px;font-weight:1000;opacity:0"></div>
-   <div id="resultName" class="winner-name" style="margin-top:12px;opacity:0"></div>
- </div>
- <div class="sheet-actions">
-   <button id="postFightStats" class="secondary">Статистика боя</button>
-   <button id="postFightContinue" class="primary" style="opacity:0;pointer-events:none">Продолжить</button>
- </div>`;
+   <div class="result-card">
+     <div class="result-kicker">БОЙ ОКОНЧЕН</div>
+     <div id="resultStage" class="result-stage"></div>
+     <div id="resultRound" class="result-round"></div>
+     <div id="resultScores" class="result-scores"></div>
+     <div id="resultName" class="result-winner"></div>
+     <div class="result-method">${method}</div>
+     <div class="result-actions">
+       <button id="postFightStats" class="secondary">СТАТИСТИКА БОЯ</button>
+       <button id="postFightContinue" class="primary">ПРОДОЛЖИТЬ</button>
+     </div>
+   </div>`;
 
  const stage=document.getElementById("resultStage"),roundEl=document.getElementById("resultRound");
  const scoresEl=document.getElementById("resultScores"),nameEl=document.getElementById("resultName");
  const cont=document.getElementById("postFightContinue");
- stage.textContent=finishLabel;stage.style.animation="resultPop .45s ease";
- setTimeout(()=>{
-   roundEl.textContent=`Раунд ${finishR} • ${method}`;
-   roundEl.style.opacity="1";
-   roundEl.style.animation="resultPop .35s ease";
- },450);
 
+ stage.textContent=finishLabel;
+ roundEl.textContent=`Раунд ${finishR}`;
  if(method==="Decision"||method==="Split Decision"){
-   setTimeout(()=>{
-     scoresEl.innerHTML=scoreLines.map((x,i)=>`<div>Судья ${i+1}: ${x}</div>`).join("");
-     scoresEl.style.opacity="1";scoresEl.style.animation="resultPop .35s ease";
-   },750);
-   setTimeout(()=>{nameEl.textContent=winnerName;nameEl.style.opacity="1";nameEl.style.animation="resultPop .45s ease"},1250);
- }else{
-   setTimeout(()=>{nameEl.textContent=winnerName;nameEl.style.opacity="1";nameEl.style.animation="resultPop .45s ease"},750);
+   scoresEl.innerHTML=scoreLines.map((x,i)=>`<div>Судья ${i+1}: <b>${x}</b></div>`).join("");
  }
- setTimeout(()=>{cont.style.opacity="1";cont.style.pointerEvents="auto"},1700);
+ nameEl.textContent=winnerName;
 
- document.getElementById("postFightStats").onclick=()=>document.getElementById("fightStats").click();
+ // Staged animation, but every critical result is already in the DOM and visible.
+ stage.style.animation="resultPop .45s ease";
+ setTimeout(()=>roundEl.classList.add("show"),350);
+ if(method==="Decision"||method==="Split Decision")setTimeout(()=>scoresEl.classList.add("show"),650);
+ setTimeout(()=>nameEl.classList.add("show"),900);
+ setTimeout(()=>cont.classList.add("show"),1200);
+
+ document.getElementById("postFightStats").onclick=()=>{
+   const statsBtn=document.getElementById("fightStats");
+   if(statsBtn){
+     const prev=statsBtn.style.display;
+     statsBtn.style.display="block";
+     statsBtn.click();
+     statsBtn.style.display=prev;
+   }
+ };
  cont.onclick=()=>{closeModal();page("home")};
  const stop=document.getElementById("stopFight");
- stop.textContent="Продолжить";stop.className="primary";stop.onclick=()=>{closeModal();page("home")};
+ if(stop){stop.textContent="Продолжить";stop.className="primary";stop.onclick=()=>{closeModal();page("home")};}
+
 }
  function draw2DFight(){
  const c=document.getElementById("fightCanvas");if(!c)return;
