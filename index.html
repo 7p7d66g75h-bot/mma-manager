@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V24";
+  const BUILD="MMA_MANAGER_V26";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V24 • Road to Champion</title>MMA Manager — Road to Champion</title>
+<title>MMA Manager V26 • Road to Champion</title>MMA Manager — Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -187,7 +187,7 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
  opacity:.72!important;
 }
 </style><style id="build-v24">
-html[data-build="MMA_MANAGER_V24"]::before{
+html[data-build="MMA_MANAGER_V26"]::before{
   content:"";
   display:none;
 }
@@ -354,8 +354,92 @@ function makeHistory(f){
  }
  return arr;
 }
+
+function expandWorldToTarget(){
+ const TARGET=3200;
+ if(!Array.isArray(s.world))s.world=[];
+ if(s.world.length>=TARGET)return;
+
+ const quotas={
+  "UFC":320,"PFL":300,"ONE Championship":360,"RIZIN":340,"ACA":340,
+  "LFA":360,"KSW":340,"Cage Warriors":300,"Ares FC":280,"BRAVE CF":260
+ };
+ const counts={};
+ Object.keys(quotas).forEach(k=>counts[k]=s.world.filter(f=>f.org===k).length);
+
+ // Build a global name key so the expanded universe does not create obvious duplicates.
+ const used=new Set(s.world.map(f=>`${f.country}|${f.name}`));
+ const weightIndex={};
+ WEIGHTS.forEach(w=>weightIndex[w]=s.world.filter(f=>f.weight===w).length);
+
+ const baseFor=(org)=>{
+   if(org==="UFC")return rand(76,86);
+   if(org==="PFL"||org==="ONE Championship")return rand(72,84);
+   if(org==="RIZIN"||org==="ACA")return rand(68,81);
+   if(org==="LFA"||org==="KSW")return rand(64,78);
+   return rand(61,75);
+ };
+
+ const orgList=Object.keys(quotas);
+ let made=0, attempts=0;
+ while(s.world.length<TARGET && attempts<12000){
+   attempts++;
+   // Fill the currently most underfilled promotion, while rotating weight classes.
+   let org=orgList
+     .filter(k=>counts[k]<quotas[k])
+     .sort((a,b)=>(counts[a]/quotas[a])-(counts[b]/quotas[b]))[0];
+   if(!org)break;
+
+   const weight=WEIGHTS.slice().sort((a,b)=>weightIndex[a]-weightIndex[b])[0];
+   const country=choice(COUNTRIES);
+   const pool=COUNTRY_NAMES[country[0]]||COUNTRY_NAMES["Россия"];
+   let name=choice(pool.first)+" "+choice(pool.last);
+   let guard=0;
+   while(used.has(`${country[0]}|${name}`)&&guard++<30){
+     name=choice(pool.first)+" "+choice(pool.last);
+   }
+   if(used.has(`${country[0]}|${name}`))continue;
+   used.add(`${country[0]}|${name}`);
+
+   let base=baseFor(org);
+   let f=genFighter(name,weight,choice(STYLES),base,country[0]);
+   f.org=org;
+   f.orgLevel=ORGS.find(o=>o.name===org)?.level||6;
+
+   // Make the upper promotions genuinely populated with established fighters.
+   if(org==="UFC"){
+     f.wins=rand(8,22); f.losses=rand(0,6);
+   }else if(org==="PFL"||org==="ONE Championship"){
+     f.wins=rand(6,20); f.losses=rand(0,7);
+   }else if(org==="RIZIN"||org==="ACA"){
+     f.wins=rand(4,18); f.losses=rand(0,8);
+   }else{
+     f.wins=rand(1,15); f.losses=rand(0,9);
+   }
+   f.draws=rand(0,1);
+   f.rating=Math.round(ovr(f)+f.wins*.35-f.losses*.25);
+   f.popularity=Math.max(5,Math.min(90,8+f.wins*1.6+rand(0,10)));
+   f.potential=rand(65,95);
+   f.lastFightDay=Math.max(1,s.day-rand(10,300));
+   f.worldNextFightDay=s.day+rand(14,70);
+   f.history=makeHistory(f);
+   // Keep world history compact so a 3,200+ fighter universe fits localStorage.
+   if(f.history.length>4)f.history.length=4;
+
+   s.world.push(f);
+   counts[org]++;
+   weightIndex[weight]++;
+   made++;
+ }
+
+ updateRankings();
+ save();
+ return made;
+}
+
 function ensureWorld(){
  generateWorld();
+ expandWorldToTarget();
  if(!s.world.length)generateWorld();
  s.world.forEach(f=>{
    if(!f.country){let c=choice(COUNTRIES);f.country=c[0];f.flag=c[1]}
@@ -630,7 +714,7 @@ function league(){
 function calendar(){
  let d=new Date(2026,0,1);d.setDate(d.getDate()+s.day-1);
  let month=d.toLocaleString("ru-RU",{month:"long"}), upcoming=s.fighters.filter(f=>f.nextFight).sort((a,b)=>a.nextFight.date-b.nextFight.date).slice(0,6);
- document.getElementById("content").innerHTML=`<section class="panel"><div class="calbar"><div><div class="eyebrow">CAREER DATE</div><div class="cal-month">${d.getDate()} ${month} ${d.getFullYear()}</div><div class="muted">День ${s.day}</div></div><button class="primary" data-calweek>Пропустить неделю</button></div></section>
+ document.getElementById("content").innerHTML=`<section class="panel"><div class="calbar"><div><div class="eyebrow">CAREER DATE</div><div class="cal-month">${d.getDate()} ${month} ${d.getFullYear()}</div><div class="muted">День ${s.day} • В мире: ${(s.world||[]).length} активных бойцов</div></div><button class="primary" data-calweek>Пропустить неделю</button></div></section>
  <section class="panel"><div class="section-head"><h3>Ближайшие бои</h3><span>${upcoming.length}</span></div>${upcoming.map(f=>`<div class="row"><span>${f.flag||"🌍"} <b>${f.name}</b><br><span class="muted">${f.nextFight.org} • vs ${f.nextFight.opponent.name}</span></span><b class="gold">${Math.max(0,f.nextFight.date-s.day)} дн.</b></div>`).join("")||`<div class="muted">Боев пока нет.</div>`}</section>`;
  document.querySelector("[data-calweek]").onclick=advanceWorldWeek;
 }
@@ -685,36 +769,146 @@ function simulateVacantTitles(){
    }
  }
 }
-function simulateWorldMonth(){
- let eligible=s.world.filter(f=>!f.injury&&!f.nextFight&&(!f.worldNextFightDay||f.worldNextFightDay<=s.day)),used=new Set(),count=0,byOrg={};
- eligible.sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a)));
- for(let f of eligible){
-  if(used.has(f.id)||count>=36)continue;
-  let c=eligible.filter(o=>o.id!==f.id&&!used.has(o.id)&&o.weight===f.weight&&Math.abs(ovr(o)-ovr(f))<=10&&o.org===f.org),o=choice(c);if(!o)continue;
-  simulateAIFight(f,o,f.org);used.add(f.id);used.add(o.id);count++;(byOrg[f.org]??=[]).push(f,o);
+
+function worldProspectName(){
+ const c=choice(COUNTRIES),pool=COUNTRY_NAMES[c[0]]||COUNTRY_NAMES["Россия"];
+ return {country:c,name:choice(pool.first)+" "+choice(pool.last),flag:c[1]};
+}
+function createWorldProspects(count=10){
+ if(s.world.length>=5000)return 0;
+ let made=0,used=new Set(s.world.map(f=>`${f.country}|${f.name}`));
+ for(let i=0;i<count&&s.world.length<5000;i++){
+   let x=worldProspectName(),guard=0;
+   while(used.has(`${x.country[0]}|${x.name}`)&&guard++<20)x=worldProspectName();
+   if(used.has(`${x.country[0]}|${x.name}`))continue;
+   used.add(`${x.country[0]}|${x.name}`);
+   let org=choice(["LFA","KSW","Cage Warriors","Ares FC","BRAVE CF","ACA","RIZIN"]);
+   let f=genFighter(x.name,choice(WEIGHTS),choice(STYLES),rand(57,72),x.country[0]);
+   f.flag=x.flag;f.age=rand(18,24);f.wins=rand(0,3);f.losses=rand(0,1);f.draws=0;
+   f.rating=Math.round(ovr(f));f.potential=rand(78,97);f.popularity=rand(3,14);
+   f.org=org;f.orgLevel=ORGS.find(o=>o.name===org)?.level||6;
+   f.worldNextFightDay=s.day+rand(10,50);f.history=[];
+   s.world.push(f);made++;
  }
- let prospects=s.world.filter(f=>f.age<=27&&f.wins>=2&&f.wins<=12&&f.losses<=3&&!f.injury&&!f.nextFight&&!f.contract).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,8),pairs=[];
+ return made;
+}
+function worldAgeAndRetirement(){
+ let retired=0;
+ for(let f of s.world){
+   // Age advances continuously; only the monthly simulation changes the displayed age.
+   f._ageMonths=(f._ageMonths||0)+1;
+   if(f._ageMonths>=12){f.age=(f.age||27)+1;f._ageMonths=0;}
+   if(f.age>=38){
+     let decline=Math.max(0,f.age-37);
+     f.rating=Math.max(45,(f.rating||ovr(f))-Math.ceil(decline*.8));
+     f.form=clamp((f.form||70)-1);
+   }
+   let retireChance=f.age>=41?0.55:f.age>=39?0.22:f.age>=38?0.06:0;
+   if(retireChance>0&&Math.random()<retireChance&&!f.nextFight){
+     f.retired=true;f.retiredDay=s.day;f.retirementReason=f.age>=40?"Возраст":"Серия поражений/спад";
+     retired++;
+   }
+ }
+ if(retired)logNews(`${retired} бойцов завершили карьеру в этом месяце.`,"RETIREMENTS");
+ return retired;
+}
+function worldFreeAgency(){
+ let moved=0;
+ const free=s.world.filter(f=>!f.retired&&!f.nextFight&&!f.injury&&f.org&&!f.contract);
+ for(let f of free){
+   if(Math.random()>0.08)continue;
+   let current=ORGS.find(o=>o.name===f.org),choices2=ORGS.filter(o=>o.name!=="DWCS"&&o.name!==f.org&&
+     (!isTopLeague(o.name)||topLeagueEligible(f,o.name))&&
+     (o.level<=(current?.level||6)+1));
+   if(!choices2.length)continue;
+   let target=choice(choices2);
+   if(Math.random()<0.45){
+     let old=f.org;f.org=target.name;f.orgLevel=target.level;
+     f.contract={org:target.name,length:choice([2,3,4]),fightsLeft:choice([2,3,4]),salary:Math.round(target.purse*.55)};
+     moved++;logNews(`${target.name} подписал ${f.name}. Контракт: ${f.contract.fightsLeft} боя.`,"FREE AGENCY");
+   }
+ }
+ return moved;
+}
+function simulateWorldMonth(){
+ // 1. Age, decline and retirement keep the universe alive.
+ worldAgeAndRetirement();
+
+ // 2. Retired fighters leave active rankings and matchmaking.
+ s.world=s.world.filter(f=>!f.retired);
+
+ // 3. New prospects enter the lower/mid-level ecosystem every month.
+ createWorldProspects(rand(8,14));
+
+ // 4. Schedule a realistic volume of AI fights. Top fighters fight less often.
+ let eligible=s.world.filter(f=>!f.injury&&!f.nextFight&&(!f.worldNextFightDay||f.worldNextFightDay<=s.day));
+ let used=new Set(),count=0,byOrg={};
+ eligible.sort((a,b)=>{
+   let ar=(b.rating||ovr(b))-(a.rating||ovr(a));
+   return ar+(Math.random()-.5)*12;
+ });
+ for(let f of eligible){
+   if(used.has(f.id)||count>=44)continue;
+   let targetLevel=ORGS.find(x=>x.name===f.org)?.level||6;
+   let c=eligible.filter(o=>o.id!==f.id&&!used.has(o.id)&&o.weight===f.weight&&
+      Math.abs(ovr(o)-ovr(f))<=11&&o.org===f.org&&
+      !((f.history||[]).slice(0,3).some(h=>h.opponent===o.name)));
+   if(!c.length)continue;
+   let o=choice(c);
+   simulateAIFight(f,o,f.org);
+   used.add(f.id);used.add(o.id);count++;
+   (byOrg[f.org]??=[]).push(f,o);
+
+   // Strong wins shorten the next fight window; aging/injury can lengthen it.
+   let winner=f.history[0]?.result==="W"?f:o;
+   winner.worldNextFightDay=s.day+rand(35,75);
+ }
+
+ // 5. Prospect pipeline: young undefeated/low-loss fighters get opportunities.
+ let prospects=s.world.filter(f=>f.age<=27&&f.wins>=2&&f.wins<=12&&f.losses<=3&&!f.injury&&!f.nextFight)
+   .sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,10),pairs=[];
  while(prospects.length>1)pairs.push([prospects.shift(),prospects.shift()]);
  pairs.forEach(([f,o])=>simulateAIFight(f,o,"DWCS"));
  let standout=pairs.flatMap(x=>x).sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a)))[0];
- if(standout&&standout.wins>3&&standout.losses<=3){standout.dwcsOffer=true;logNews(`DWCS: ${standout.name} получил шанс на контракт UFC после яркого выступления.`,"DWCS")}
- Object.entries(byOrg).forEach(([org,arr])=>{let ev=createEvent(org,arr);logNews(`${org}: ${ev.event} завершился. Открыт полный кард и результаты.`,"CARD")});
- // Реалистичные переходы между организациями: топы могут подписываться в UFC/PFL, но слабые рекорды туда не попадают.
- let transferPool=s.world.filter(f=>!f.injury&&!f.nextFight);
- ["UFC","PFL"].forEach(target=>{
+ if(standout&&standout.wins>3&&standout.losses<=3){
+   standout.dwcsOffer=true;
+   logNews(`DWCS: ${standout.name} получил шанс на контракт UFC после яркого выступления.`,"DWCS");
+ }
+
+ // 6. Create event cards/results for the promotions that were active this month.
+ Object.entries(byOrg).forEach(([org,arr])=>{
+   let ev=createEvent(org,arr);
+   logNews(`${org}: ${ev.event} завершился. Открыт полный кард и результаты.`,"CARD");
+ });
+
+ // 7. Promotion movement: exceptional regional fighters can climb.
+ let transferPool=s.world.filter(f=>!f.injury&&!f.nextFight&&!f.retired);
+ ["UFC","PFL","ONE Championship"].forEach(target=>{
    let slots=target==="UFC"?rand(1,2):rand(1,3);
-   let candidates=transferPool.filter(f=>f.org!==target&&topLeagueEligible(f,target)).sort((a,b)=>(b.popularity+a.wins)-(a.popularity+b.wins)).slice(0,10);
+   let candidates=transferPool.filter(f=>f.org!==target&&topLeagueEligible(f,target))
+     .sort((a,b)=>(b.popularity+a.wins)-(a.popularity+b.wins)).slice(0,12);
    for(let i=0;i<Math.min(slots,candidates.length);i++){
-    let f=candidates[i];
-    if(Math.random()<(f.title&&f.age>=30?0.28:0.55)){
-      let old=f.org;f.org=target;f.orgLevel=ORGS.find(o=>o.name===target)?.level||10;
-      logNews(`${target} подписал ${f.name} из ${old}. Рекорд ${rec(f)}.`,"TRANSFER");
-    }
+     let f=candidates[i];
+     if(Math.random()<(f.title&&f.age>=30?0.32:0.48)){
+       let old=f.org;f.org=target;f.orgLevel=ORGS.find(o=>o.name===target)?.level||9;
+       f.contract={org:target,length:choice([2,3,4]),fightsLeft:choice([2,3,4]),salary:Math.round((ORGS.find(o=>o.name===target)?.purse||50000)*.55)};
+       logNews(`${target} подписал ${f.name} из ${old}. Рекорд ${rec(f)}.`,"TRANSFER");
+     }
    }
  });
+
+ // 8. Simulate free agency movement between comparable promotions.
+ worldFreeAgency();
+
+ // 9. Keep vacant title divisions moving.
  simulateVacantTitles();
- let before=JSON.stringify((s.globalTop300||[]).slice(0,10).map(x=>x.id));updateRankings();let after=JSON.stringify((s.globalTop300||[]).slice(0,10).map(x=>x.id));
+
+ // 10. Rankings update after all movement/results.
+ let before=JSON.stringify((s.globalTop300||[]).slice(0,10).map(x=>x.id));
+ updateRankings();
+ let after=JSON.stringify((s.globalTop300||[]).slice(0,10).map(x=>x.id));
  if(before!==after)logNews("Мировой TOP 300 обновлён после результатов месяца.","RANKINGS");
+ save();
 }
 function showDueFights(){
  let due=s.fighters.filter(f=>f.nextFight&&f.nextFight.date===s.day);
@@ -894,11 +1088,16 @@ function matchmake(){
    : ORGS.filter(o=>o.name!=="DWCS" && (s.managerRating||30)>=Math.max(20,o.unlock-10)).filter(o=>!isTopLeague(o.name)||topLeagueEligible(f,o.name));
  let rows=[];
  eligibleOrgs.forEach(org=>{
-   let pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));
+   let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));
+   let pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&x.name!==f.name&&!recentOpponents.has(x.name)&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));
    // Contracted fighters can only be matched inside their contracted promotion.
+   // The same opponent is blocked for the last three completed fights to avoid unrealistic rematches.
    // Rank progression: champions only face top contenders; ranked fighters prefer nearby ranks.
    let fp=getPos(f);
    let isChamp=!!f.title;
+   if(pool.length<3){
+     pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&x.name!==f.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));
+   }
    let opps=pool.filter(x=>{
      let rp=getPos(x);
      if(isChamp) return rp>0&&rp<=8;
