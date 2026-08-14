@@ -1,6 +1,9 @@
 name: Fix UFC roster size and rankings counter
 
 on:
+  push:
+    paths:
+      - '.github/workflows/fix-rosters-and-rankings.yml'
   workflow_dispatch:
 
 permissions:
