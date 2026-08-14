@@ -1,0 +1,34 @@
+name: Fix JS runtime
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch runtime safely
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          # Repair malformed title markup.
+          s=s.replace('<title>MMA Manager V35 • Road to Champion</title>MMA Manager — Road to Champion</title>', '<title>MMA Manager V35 • Road to Champion</title>')
+          # A missing title-state helper must never stop the whole render loop.
+          s=s.replace('s.titles=s.titles||{};s.rivalries=s.rivalries||[];s.injuryReserve=s.injuryReserve||[];s.pressScore=s.pressScore||0;', 's.titles=s.titles||{};s.rivalries=s.rivalries||[];s.injuryReserve=s.injuryReserve||[];s.pressScore=s.pressScore||0;')
+          s=s.replace('ensureTitleState();updateRankings();', 'if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();')
+          # Never let ranking initialization kill the entire UI if an old save is missing a helper.
+          s=s.replace('ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};', 'if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'Fix V35 JavaScript runtime so UI buttons initialize'
+          git push
