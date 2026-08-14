@@ -77,7 +77,7 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
   .nav{padding-bottom:max(2px,env(safe-area-inset-bottom));margin-bottom:0}
   .sheet{max-height:92dvh;padding:13px}
 }
-.round-action{margin:10px 0 6px;padding:10px 12px;border:1px solid #8b6a2e;border-radius:9px;background:#17130a;text-align:center;font-weight:1000;letter-spacing:.8px}.fight-controls #nextRoundBtn{grid-column:1/-1!important;min-height:64px!important;font-size:18px!important;font-weight:1000!important;display:none;position:sticky;top:8px;z-index:50;box-shadow:0 0 0 2px rgba(214,169,58,.45),0 12px 30px rgba(0,0,0,.55)}.fight-canvas-wrap{box-shadow:inset 0 0 40px rgba(0,0,0,.35)}<style id="fight-zone-ui">
+.round-action{margin:10px 0 6px;padding:10px 12px;border:1px solid #8b6a2e;border-radius:9px;background:#17130a;text-align:center;font-weight:1000;letter-spacing:.8px}.fight-controls #nextRoundBtn{grid-column:1/-1!important;min-height:64px!important;font-size:18px!important;font-weight:1000!important;position:static;z-index:50;box-shadow:0 0 0 2px rgba(214,169,58,.45),0 12px 30px rgba(0,0,0,.55)}.fight-canvas-wrap{box-shadow:inset 0 0 40px rgba(0,0,0,.35)}<style id="fight-zone-ui">
 .zone{font-size:9px;text-align:left;margin:4px 0}.zone span{display:flex;justify-content:space-between;gap:8px}.zone i{display:block;height:4px;background:#30343a;border-radius:4px;overflow:hidden}.zone em{display:block;height:100%;background:#c9a44b}.fightbox .corner{min-width:0}
 </style><style id="next-round-fix">
 .next-round-ready{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1/-1!important}
@@ -155,6 +155,23 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 @keyframes frBoom{0%{transform:scale(.55);opacity:.1;filter:blur(8px)}60%{transform:scale(1.08);opacity:1;filter:blur(0)}100%{transform:scale(1)}}
 @keyframes frWinner{0%{transform:scale(.65);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
 @media(max-width:520px){.fr-actions{grid-template-columns:1fr}.fight-result-card{padding:24px 14px 16px}}
+</style><style id="fight-controls-v23">
+.fight-controls{position:static!important;bottom:auto!important;top:auto!important;z-index:10!important}
+.fight-controls #nextRoundBtn{display:none}
+.fight-controls #nextRoundBtn[style*="display: flex"]{display:flex}
+.fight-controls #stopFight{
+ grid-column:1/-1!important;
+ justify-self:end!important;
+ width:auto!important;
+ min-width:110px!important;
+ min-height:34px!important;
+ height:34px!important;
+ padding:6px 18px!important;
+ font-size:12px!important;
+ border-radius:8px!important;
+ margin-top:6px!important;
+ opacity:.72!important;
+}
 </style></head>
 <body>
 <div class="app">
@@ -793,7 +810,9 @@ function showLeagueOffers(f){
  if(!f)return;
  let all=ORGS.filter(o=>o.name!=="DWCS"&&(!isTopLeague(o.name)||topLeagueEligible(f,o.name)));
  let rating=ovr(f),streak=f.winStreak||0;
- let offerChance=Math.max(8,Math.min(78,18+(rating-65)*1.2+streak*5+(f.lastFight?.result==="W"?18:0)+(f.lastFight?.method&&f.lastFight.method!=="Decision"?8:0)));
+ let recentOrgWins=(f.history||[]).filter(h=>h.org===f.lastFight?.org&&h.result==="W").length;
+ let offerChance=Math.max(8,Math.min(96,18+(rating-65)*1.2+streak*5+(f.lastFight?.result==="W"?18:0)+(f.lastFight?.method&&f.lastFight.method!=="Decision"?8:0)+recentOrgWins*10));
+ if(recentOrgWins>=3 && f.lastFight?.result==="W") offerChance=100;
  let offers=[];
  if(Math.random()*100<=offerChance){
    let count=Math.random()<.62?1:(Math.random()<.86?2:3);
@@ -839,7 +858,7 @@ function profile(f,back="roster"){
  <section class="panel"><div class="section-head"><h3>Контракт</h3><span>${f.contract?`${f.contract.fightsLeft}/${f.contract.length}`:"FREE AGENT"}</span></div>${f.contract?`<button data-terminate-contract="${f.id}" class="danger contract-terminate">Расторгнуть контракт</button>`:""}${f.leagueOffers?.length?`<div class="notice-strip">Есть ${f.leagueOffers.length} предложения от лиг.</div>`:""}${f.contract?`<div class="row"><span>Организация</span><b>${f.contract.org}</b></div><div class="row"><span>Гонорар</span><b>$${(f.contract.salary||0).toLocaleString("ru-RU")}</b></div>`:`<div class="muted">У бойца нет менеджера. Можно начать переговоры прямо из профиля.</div>`}</section>
  <section class="panel"><div class="section-head"><h3>Последние бои</h3><span>${(f.history||[]).length}</span></div>${history||`<div class="muted">Истории боёв пока нет.</div>`}</section>
  <div class="sheet-actions"><button data-back-profile>Назад</button>${!f.retired?`<button class="primary" data-profile-negotiate>${s.fighters.some(x=>x.id===f.id)?"Вести дела":"Вести дела"}</button>`:""}${f.contract&&!f.nextFight?`<button class="primary" data-profile-match>Организовать бой</button>`:""}${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;
- document.querySelector("[data-back-profile]").onclick=()=>{closeModal();if(back==="market")market();else if(back==="match")matchmake();else if(back==="rankings")rankings();else if(back==="event")newsCenter();else page("roster")};
+ document.querySelector("[data-back-profile]").onclick=()=>{closeModal();if(back==="market")market();else if(back==="match")matchmake();else if(back==="rankings")rankings();else if(back==="event")newsCenter();else if(back==="prefight")fight();else page("roster")};
  let ng=document.querySelector("[data-profile-negotiate]");if(ng)ng.onclick=()=>negotiate(f);
  let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);matchmake()};
  let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};
@@ -1114,11 +1133,11 @@ function roundEnd(){
  if(f.history.length>12)f.history.length=12;
 
  if(win){
-   f.wins++;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;
+   f.wins++;f.winStreak=(f.winStreak||0)+1;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;
    f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;
    f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true);
  }else{
-   f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}
+   f.losses++;f.winStreak=0;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}
    f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);
    f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false);
  }
@@ -1198,7 +1217,13 @@ function roundEnd(){
  document.getElementById("frContinue").onclick=()=>{
    overlay.remove();
    closeModal();
-   page("home");
+   // A fighter under an active league contract stays with that league.
+   // When the contract has ended, the market evaluates fresh offers now.
+   if(f.lastFight?.result==="W" && !f.contract && f.agencyManaged){
+     showLeagueOffers(f);
+   }else{
+     page("home");
+   }
  };
 
 }
