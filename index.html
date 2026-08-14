@@ -79,6 +79,9 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 }
 .round-action{margin:10px 0 6px;padding:10px 12px;border:1px solid #8b6a2e;border-radius:9px;background:#17130a;text-align:center;font-weight:1000;letter-spacing:.8px}.fight-controls #nextRoundBtn{grid-column:1/-1!important;min-height:64px!important;font-size:18px!important;font-weight:1000!important;display:none;position:sticky;top:8px;z-index:50;box-shadow:0 0 0 2px rgba(214,169,58,.45),0 12px 30px rgba(0,0,0,.55)}.fight-canvas-wrap{box-shadow:inset 0 0 40px rgba(0,0,0,.35)}<style id="fight-zone-ui">
 .zone{font-size:9px;text-align:left;margin:4px 0}.zone span{display:flex;justify-content:space-between;gap:8px}.zone i{display:block;height:4px;background:#30343a;border-radius:4px;overflow:hidden}.zone em{display:block;height:100%;background:#c9a44b}.fightbox .corner{min-width:0}
+</style><style id="next-round-fix">
+.next-round-ready{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1/-1!important}
+.next-round-fixed{display:none;position:fixed;left:14px;right:14px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:20000;min-height:62px;border:2px solid #e0b943;border-radius:14px;background:#d6a93a;color:#090b0e;font-size:18px;font-weight:1000;align-items:center;justify-content:center;box-shadow:0 10px 35px rgba(0,0,0,.7)}
 </style></head>
 <body>
 <div class="app">
@@ -96,9 +99,9 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 <div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const BUILD_RESET_V17=true;
+const BUILD_RESET_V18=true;
 try{
- if(!localStorage.getItem("MMA_MANAGER_V14_CLEAN")){
+ if(!localStorage.getItem("MMA_MANAGER_V18_CLEAN")){
    localStorage.removeItem("mma_manager_save");
    localStorage.setItem("MMA_MANAGER_V14_CLEAN","1");
  }
@@ -955,7 +958,45 @@ function simulateFight(f,n){
    }
    a.stamina=Math.max(0,a.stamina-rand(0,1));b.stamina=Math.max(0,b.stamina-rand(0,1));
  }
- function roundEnd(){
+ function showNextRound(){
+ const nb=document.getElementById("nextRoundBtn"),ra=document.getElementById("roundAction");
+ if(ra){ra.textContent=`РАУНД ${round} ЗАВЕРШЁН • СТАТИСТИКА ГОТОВА`;ra.style.display="block"}
+ if(nb){
+   nb.textContent=`Следующий раунд • R${round+1}`;
+   nb.hidden=false;
+   nb.removeAttribute("hidden");
+   nb.style.setProperty("display","flex","important");
+   nb.style.setProperty("visibility","visible","important");
+   nb.style.setProperty("opacity","1","important");
+   nb.classList.add("next-round-ready");
+ }
+ // Fixed fallback button: it cannot be hidden by the fight layout or scroll position.
+ let fx=document.getElementById("nextRoundFixed");
+ if(!fx){
+   fx=document.createElement("button");fx.id="nextRoundFixed";fx.className="next-round-fixed";
+   document.body.appendChild(fx);
+ }
+ fx.textContent=`▶  Следующий раунд • R${round+1}`;
+ fx.style.display="flex";
+ fx.onclick=()=>startNextRound();
+ toast(`Раунд ${round} завершён`);
+}
+function startNextRound(){
+ if(round>=totalRounds)return;
+ const nb=document.getElementById("nextRoundBtn"),fx=document.getElementById("nextRoundFixed"),ra=document.getElementById("roundAction");
+ if(nb)nb.style.setProperty("display","none","important");
+ if(fx)fx.style.display="none";
+ if(ra)ra.style.display="none";
+ round++;
+ roundTime=300;simTime=0;running=true;last=performance.now();
+ const rn=document.getElementById("rn"),tm=document.getElementById("tm");
+ if(rn)rn.textContent=`${round} / ${totalRounds}`;
+ if(tm)tm.textContent="5:00";
+ currentPlan=roundPlans[round-1]||"balanced";
+ draw2DFight();toast(`Раунд ${round} • ${fightPlanLabel(currentPlan)}`);
+ raf=requestAnimationFrame(frame);
+}
+function roundEnd(){
    let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";let sa=ar===br?10:(ar>br?(ar-br>18?10:10):(10-(br-ar>18?2:1))),sb=ar===br?10:(br>ar?(br-ar>18?10:10):(10-(ar-br>18?2:1)));scorecards.push({a:sa,b:sb});
    a.rounds.push(winner);b.rounds.push(winner==="A"?"B":winner==="B"?"A":"X");
    a.roundScore=0;b.roundScore=0;
@@ -967,6 +1008,7 @@ function simulateFight(f,n){
    document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
  }
  function finish(){
+   const fx=document.getElementById("nextRoundFixed");if(fx)fx.style.display="none";
    if(fightFinished)return;
    fightFinished=true;
    f.fightResolved=true;
@@ -1126,8 +1168,10 @@ function frame(now){
    if(finishReason){finish();return}
    if(a.head<=0||b.head<=0){finish();return}
    if(roundTime<=0){
-  roundTime=0;document.getElementById("tm").textContent="0:00";draw2DFight();roundEnd();running=false;
-  if(round<totalRounds&&nb){nb.textContent=`Следующий раунд • R${round+1}`;const ra=document.getElementById("roundAction");if(ra){ra.textContent=`РАУНД ${round} ЗАВЕРШЁН • СТАТИСТИКА ГОТОВА`;ra.style.display="block"}nb.style.display="flex";nb.style.visibility="visible";nb.style.opacity="1";nb.scrollIntoView({behavior:"smooth",block:"center"});toast(`Раунд ${round} завершён — нажми «Следующий раунд»`)}else finish();return;
+  roundTime=0;running=false;cancelAnimationFrame(raf);
+  const tmEl=document.getElementById("tm");if(tmEl)tmEl.textContent="0:00";
+  try{roundEnd()}catch(e){console.error("roundEnd error",e)}
+  if(round<totalRounds){showNextRound()}else{finish()}return;
 }
    let m=Math.floor(Math.max(0,roundTime)/60),sec=Math.floor(Math.max(0,roundTime)%60);
    document.getElementById("tm").textContent=`${m}:${String(sec).padStart(2,"0")}`;
@@ -1169,7 +1213,7 @@ document.getElementById("fightStats").onclick=()=>{
 const fightControls=document.querySelector(".fight-controls");
 const nb=document.getElementById("nextRoundBtn"),pb=document.getElementById("changePlanBtn");
 pb.onclick=async()=>{currentPlan=await chooseFightPlan();roundPlans[round-1]=currentPlan;toast("План: "+fightPlanLabel(currentPlan))};
-nb.onclick=()=>{if(round>=totalRounds)return;nb.style.display="none";const ra=document.getElementById("roundAction");if(ra)ra.style.display="none";round++;roundTime=300;simTime=0;document.getElementById("rn").textContent=`${round} / ${totalRounds}`;document.getElementById("tm").textContent="5:00";currentPlan=roundPlans[round-1]||"balanced";running=true;last=performance.now();draw2DFight();toast(`Раунд ${round} • ${fightPlanLabel(currentPlan)}`);raf=requestAnimationFrame(frame)};
+nb.onclick=()=>startNextRound();
 document.querySelectorAll("[data-sp]").forEach(x=>x.onclick=()=>{speed=+x.dataset.sp;document.querySelectorAll("[data-sp]").forEach(y=>y.classList.remove("primary"));x.classList.add("primary");document.getElementById("speedText").textContent=`${speed===1?"Обычное время":speed===30?"Ускоренное время":"Молниеносное время"} • 1 раунд ≈ ${Math.max(1,Math.round(300/speed))} сек`});
  document.getElementById("stopFight").onclick=()=>{
   running=false;cancelAnimationFrame(raf);
