@@ -1,0 +1,86 @@
+name: Apply V36 championship system
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch championship system
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          Path('backups').mkdir(exist_ok=True)
+          Path('backups/index-v35-before-championship.html').write_text(s,encoding='utf-8')
+
+          s=s.replace('const BUILD="MMA_MANAGER_V35"','const BUILD="MMA_MANAGER_V36"',1)
+          s=s.replace('MMA Manager V35 • Road to Champion','MMA Manager V36 • Road to Champion',1)
+
+          css='''\n.championship-card{background:linear-gradient(145deg,#201a0d,#0f1115);border:1px solid #80672a;border-radius:10px;padding:12px;margin-top:8px}.championship-card .belt-mini{font-size:30px;float:left;margin-right:10px}.champion-name{font-size:16px;font-weight:950}.champion-meta{font-size:10px;color:#9da6af;margin-top:3px}.title-tag{display:inline-block;margin-top:5px;padding:3px 6px;border:1px solid #80672a;border-radius:5px;color:#d5ae42;font-size:9px;font-weight:900}.title-fight-tag{display:inline-block;padding:4px 7px;border-radius:5px;background:#322915;border:1px solid #80672a;color:#e1bd52;font-size:10px;font-weight:950}\n'''
+          s=s.replace('</style>',css+'</style>',1)
+
+          old=re.search(r'const OFFICIAL_PROMOTIONS=\[.*?function injuryRisk\(f\)\{',s,re.S)
+          if not old:
+              raise SystemExit('championship block marker not found')
+          new='''const OFFICIAL_PROMOTIONS=ORGS.filter(o=>o.name!=="DWCS").map(o=>o.name);\nconst TITLE_NAMES={};\nfunction promotionForFighter(f){return f?.org||null}\nfunction titleFor(org,w){return `${org} ${w} Champion`}\nfunction ensureTitleState(){\n  s.titles=s.titles||{};\n  for(const org of OFFICIAL_PROMOTIONS){\n    s.titles[org]=s.titles[org]||{};\n    for(const w of WEIGHTS){\n      const id=s.titles[org][w];\n      const holder=id?findById(id):null;\n      if(holder && (holder.retired || holder.org!==org || holder.weight!==w)){\n        if(holder.title?.org===org && holder.title?.weight===w)holder.title=null;\n        delete s.titles[org][w];\n      }\n    }\n  }\n}\nfunction titleHolder(org,w){ensureTitleState();return s.titles?.[org]?.[w]?findById(s.titles[org][w]):null}\nfunction setTitle(org,w,f,reason="") {\n  if(!f)return;\n  ensureTitleState();\n  const old=titleHolder(org,w);\n  if(old && old.id!==f.id){\n    old.formerChampion={org,defenses:old.titleDefenses||0,reason};\n    old.title=null;\n  }\n  s.titles[org][w]=f.id;\n  f.title={org,weight:w};\n  f.titleDefenses=f.titleDefenses||0;\n  f.careerStage="Champion";\n}\nfunction clearTitle(org,w){\n  ensureTitleState();\n  const old=titleHolder(org,w);\n  if(old && old.title?.org===org && old.title?.weight===w)old.title=null;\n  if(s.titles?.[org])delete s.titles[org][w];\n}\nfunction orgRank(f,org){\n  if(!f)return 999;\n  const arr=s.rankingsByOrg?.[org]?.[f.weight]||[];\n  const x=arr.find(r=>r.id===f.id);\n  return x?.rank||999;\n}\nfunction isTitleFightPair(f,o,org){\n  if(!f||!o||!org)return false;\n  const holder=titleHolder(org,f.weight);\n  if(holder && (holder.id===f.id || holder.id===o.id))return true;\n  if(!holder){\n    const rf=orgRank(f,org),ro=orgRank(o,org);\n    return rf<=2 && ro<=2;\n  }\n  return false;\n}\nfunction championshipLabel(f){\n  return f?.title?`🏆 ЧЕМПИОН • ${f.title.org}`:"";\n}\nfunction injuryRisk(f){'''
+          s=s[:old.start()]+new+s[old.end():]
+
+          # Replace the title resolution function with a deterministic title-fight state machine.
+          s=re.sub(r'function updateTitlesAfterFight\(f,o,win,n\)\{.*?\n\}', '''function updateTitlesAfterFight(f,o,win,n){\n  const org=n.org,w=f.weight;\n  ensureTitleState();\n  const holder=titleHolder(org,w);\n  const titleFight=!!n.titleFight || (holder && (holder.id===f.id||holder.id===o.id));\n  if(!titleFight)return;\n  if(holder && holder.id===f.id){\n    if(win){\n      f.titleDefenses=(f.titleDefenses||0)+1;\n      f.title={org,weight:w};\n      f.careerStage="Champion";\n      logNews(`${f.name} защитил титул ${titleFor(org,w)}. Защит: ${f.titleDefenses}.`,`TITLE`);\n    }else{\n      clearTitle(org,w);\n      o.titleDefenses=0;\n      setTitle(org,w,o,"Победа над чемпионом");\n      logNews(`${o.name} стал новым чемпионом ${org} в весе ${w}.`,`TITLE`);\n    }\n    return;\n  }\n  if(holder && holder.id===o.id){\n    if(win){\n      clearTitle(org,w);\n      f.titleDefenses=0;\n      setTitle(org,w,f,"Победа над чемпионом");\n      logNews(`${f.name} завоевал титул ${titleFor(org,w)}.`,`TITLE`);\n    }\n    return;\n  }\n  // Vacant title: winner of the designated title fight becomes champion.\n  const winner=win?f:o;\n  clearTitle(org,w);\n  winner.titleDefenses=0;\n  setTitle(org,w,winner,"Вакантный титул");\n  logNews(`${winner.name} завоевал вакантный титул ${titleFor(org,w)}.`,`TITLE`);\n}\n''',s,count=1,flags=re.S)
+
+          # Mark matchmaking rows as title fights without changing the existing matchmaking algorithm.
+          needle='rows.push({opponent:o,org:org.name,rounds:'
+          if needle not in s: raise SystemExit('matchmaking row marker not found')
+          s=s.replace(needle,'rows.push({titleFight:isTitleFightPair(f,o,org.name),opponent:o,org:org.name,rounds:',1)
+
+          # Preserve title-fight status when creating nextFight.
+          s=s.replace('nextFight={...n,opponent:o}', 'nextFight={...n,titleFight:!!n.titleFight,opponent:o}', 1)
+
+          # Make news support TITLE category.
+          s=s.replace('type==="TRANSFER"?"ПЕРЕХОДЫ":"НОВОСТИ"','type==="TRANSFER"?"ПЕРЕХОДЫ":type==="TITLE"?"ТИТУЛЫ":"НОВОСТИ"',1)
+
+          # Add a championship panel to league rankings and keep numeric #1 separate from champion status.
+          marker='''if(!org)html+=`<section class="panel"><div class="eyebrow">WORLD P4P</div>'''
+          repl='''if(!org)html+=`<section class="panel"><div class="eyebrow">WORLD P4P</div>'''
+          # no-op marker check: we inject champion cards before the division block below.
+          if marker not in s: raise SystemExit('rankings marker not found')
+          champion_expr='''function championCard(org,w){\n const h=titleHolder(org,w);\n if(!h)return `<div class="championship-card"><span class="belt-mini">🏆</span><div class="champion-name">ВАКАНТНО</div><div class="champion-meta">${org} • ${w} • титул ждёт нового обладателя</div></div>`;\n return `<div class="championship-card"><span class="belt-mini">🏆</span><div class="champion-name">${h.name}</div><div class="champion-meta">${org} • ${w} • ${rec(h)}</div><span class="title-tag">ЧЕМПИОН • ${h.titleDefenses||0} защит</span></div>`;\n}\n'''
+          if 'function championCard(org,w)' not in s:
+              s=s.replace('function rankings(){',champion_expr+'function rankings(){',1)
+          # Replace division heading in league rankings with a champion card followed by the ranking list.
+          s=s.replace('''html+=`<section class="panel"><div class="title">${org.name} — дивизионы</div>`;\n   for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];html+=`<div style="margin-top:12px"><div class="section-head"><h3>${w}</h3><span>TOP 15</span></div>${rankingRows(arr,15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`}''','''html+=`<section class="panel"><div class="title">${org.name} — дивизионы</div>`;\n   for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];html+=`<div style="margin-top:12px"><div class="section-head"><h3>${w}</h3><span>ЧЕМПИОН + TOP 15</span></div>${championCard(org.name,w)}${rankingRows(arr.filter(r=>r.id!==s.titles?.[org.name]?.[w]),15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`}''',1)
+
+          # Make profile champion status use the canonical title state even if an old save has stale f.title.
+          s=s.replace('let rs=recordStats(f),org=f.org||"Свободный агент",champ=f.title,former=f.formerChampion||null,defenses=f.titleDefenses||0;', 'let rs=recordStats(f),org=f.org||"Свободный агент",champ=f.title||null,former=f.formerChampion||null,defenses=f.titleDefenses||0; if(org!=="Свободный агент"){const th=titleHolder(org,f.weight); if(th?.id===f.id)champ={org,weight:f.weight};}')
+
+          # Initialize/repair titles during normalization without altering the save format elsewhere.
+          s=s.replace('if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();', 'if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();',1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate JavaScript structure
+        run: |
+          node --check <(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<script>(.*)</script>\\s*</body>',s,re.S)
+          if not m: raise SystemExit('script not found')
+          print(m.group(1))
+          PY
+          )
+      - name: Commit patch and backup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html backups/index-v35-before-championship.html
+          git diff --cached --quiet || git commit -m 'V36: complete championship and belt system'
+          git push
