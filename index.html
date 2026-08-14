@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V30";
+  const BUILD="MMA_MANAGER_V31";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V30 • Road to Champion</title>MMA Manager — Road to Champion</title>
+<title>MMA Manager V31 • Road to Champion</title>MMA Manager — Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -187,7 +187,7 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
  opacity:.72!important;
 }
 </style><style id="build-v24">
-html[data-build="MMA_MANAGER_V30"]::before{
+html[data-build="MMA_MANAGER_V31"]::before{
   content:"";
   display:none;
 }
@@ -262,7 +262,45 @@ function resetCareerData(){
   s.setup=true;
   s.managerRecord={wins:0,losses:0,draws:0};
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(s))}
+function save(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(s));
+    return true;
+  }catch(e){
+    try{
+      const compact=clone(s);
+      if(Array.isArray(compact.world)){
+        compact.world=compact.world.map(f=>{
+          const x={...f};
+          x.history=[];
+          x.campSchedule={};
+          x.nextFight=null;
+          return x;
+        });
+      }
+      compact.news=(compact.news||[]).slice(0,80);
+      compact.events=(compact.events||[]).slice(-40);
+      localStorage.setItem(KEY,JSON.stringify(compact));
+      return true;
+    }catch(e2){
+      try{
+        const tiny=clone(s);
+        tiny.world=(tiny.world||[]).map(f=>{
+          const x={...f};
+          x.history=[]; x.campSchedule={}; x.nextFight=null;
+          return x;
+        });
+        tiny.rankings={};tiny.rankingsByOrg={};tiny.p4pByOrg={};
+        tiny.globalTop300=[];tiny.p4p=[];
+        localStorage.setItem(KEY,JSON.stringify(tiny));
+        return true;
+      }catch(e3){
+        console.error("Save failed",e3);
+        return false;
+      }
+    }
+  }
+}
 function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");clearTimeout(window._toast);window._toast=setTimeout(()=>e.classList.remove("show"),1800)}
 function clamp(n,a=20,b=100){return Math.max(a,Math.min(b,Math.round(n)))}
 function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
@@ -646,12 +684,42 @@ function normalizeSave(){
  });
  ensureTitleState();updateRankings();
 }
-function render(){renderTop();if(!s.setup){document.getElementById("nav").style.display="none";setup();return}normalizeSave();ensureWorld();document.getElementById("nav").style.display="grid";page(window._page||"home")}
+function render(){
+  renderTop();
+  if(!s.setup){
+    document.getElementById("nav").style.display="none";
+    setup();
+    return;
+  }
+  document.getElementById("nav").style.display="grid";
+  normalizeSave();
+  page(window._page||"home");
+  if(!s.worldPrepared || (s.world||[]).length<3200){
+    clearTimeout(window._worldBuildTimer);
+    window._worldBuildTimer=setTimeout(()=>{
+      try{
+        ensureWorld();
+        renderTop();
+        page(window._page||"home");
+      }catch(e){
+        console.error("World build failed",e);
+        toast("Мир ещё загружается");
+      }
+    },50);
+  }
+}
 function setup(){
 document.getElementById("content").innerHTML=`<section class="panel" style="margin-top:25vh"><div class="eyebrow">ROAD TO CHAMPION</div><div class="title">MMA MANAGER</div><p class="muted">Полноценная мобильная карьера менеджера: поиск бойцов, контракты, лиги, рейтинги, лагеря, травмы и симуляция боёв.</p><div class="actions one"><button class="primary" id="newCareer">Начать новую карьеру</button><button id="loadCareer">Загрузить карьеру</button></div></section>`;
 document.getElementById("newCareer").onclick=()=>newCareer();document.getElementById("loadCareer").onclick=()=>savesModal()}
 function newCareer(){
-s=clone(initial);s.setup=true;s.manager="Менеджер";s.day=1;s.money=25000;s.rep=5;s.trainingPoints=7;s.managerRating=30;s.managerPopularity=5;s.world=[];generateWorld();ensureWorld();save();window._page="home";render()}
+  s=clone(initial);
+  s.setup=true;s.manager="Менеджер";s.day=1;s.money=25000;s.rep=5;
+  s.trainingPoints=7;s.managerRating=30;s.managerPopularity=5;
+  s.world=[];s.worldPrepared=false;
+  window._page="home";
+  save();
+  render();
+}
 function page(p){window._page=p;renderTop();document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[p]||home)()}
 function openEvent(ev){
  if(!ev)return;
@@ -1602,26 +1670,3 @@ render();
 </script>
 </body>
 </html>
-document.addEventListener("click",e=>{
- const btn=e.target.closest("[data-terminate-contract]");
- if(!btn)return;
- const f=s.fighters.find(x=>String(x.id)===String(btn.dataset.terminateContract));
- if(!f||!f.contract){toast("У бойца нет действующего контракта");return}
- let fee=Math.round((f.contract.fightsLeft||1)*(f.contract.salary||0)*0.25);
- document.getElementById("modal").classList.add("open");
- document.getElementById("sheet").innerHTML=`<div class="eyebrow">РАСТОРЖЕНИЕ КОНТРАКТА</div>
- <div class="title">${f.name}</div>
- <section class="panel"><div class="row"><span>Лига</span><b>${f.contract.org}</b></div>
- <div class="row"><span>Осталось боёв</span><b>${f.contract.fightsLeft}</b></div>
- <div class="row"><span>Штраф</span><b>$${fee.toLocaleString("ru-RU")}</b></div>
- <div class="notice-strip">Расторжение освобождает бойца от контракта, но может ухудшить отношения с лигой.</div></section>
- <div class="sheet-actions"><button data-cancel-term>Отмена</button><button class="danger" data-confirm-term>Расторгнуть</button></div>`;
- document.querySelector("[data-cancel-term]").onclick=closeModal;
- document.querySelector("[data-confirm-term]").onclick=()=>{
-   s.money=Math.max(0,s.money-fee);
-   let org=f.contract.org;
-   f.formerContractOrg=org;f.contract=null;f.leagueOffers=[];f.leagueOffersPending=false;
-   logNews(`${f.name} расторг контракт с ${org}.`);
-   save();closeModal();page("roster");toast(`Контракт с ${org} расторгнут`);
- };
-});
