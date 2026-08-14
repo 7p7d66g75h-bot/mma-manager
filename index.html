@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V29";
+  const BUILD="MMA_MANAGER_V30";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V29 • Road to Champion</title>MMA Manager — Road to Champion</title>
+<title>MMA Manager V30 • Road to Champion</title>MMA Manager — Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -187,21 +187,13 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
  opacity:.72!important;
 }
 </style><style id="build-v24">
-html[data-build="MMA_MANAGER_V29"]::before{
+html[data-build="MMA_MANAGER_V30"]::before{
   content:"";
   display:none;
 }
-</style>
-<style id="v29-contract-cleanup">
-[data-manage-terminate],
-[data-terminate-contract],
-[data-cancel-term],
-[data-confirm-term],
-.contract-terminate {
-  display:none !important;
-}
-</style>
-</head>
+</style><style id="v30-contract-cleanup">
+[data-manage-terminate],[data-terminate-contract],[data-cancel-term],[data-confirm-term],.contract-terminate{display:none!important}
+</style></head>
 <body>
 <div class="app">
 <header class="topbar"><div class="toprow"><div class="brand">MMA <span>MANAGER</span></div><div class="date"><span id="topDate"></span><br><span id="topMoney" class="money"></span> • <span id="topRep" class="rep"></span> • <span id="topMgr" class="gold"></span> <button id="topSkipWeek" class="top-skip">+7</button></div></div></header>
@@ -448,6 +440,7 @@ function expandWorldToTarget(){
 }
 
 function ensureWorld(){
+if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=3200)return;
  generateWorld();
  expandWorldToTarget();
  if(!s.world.length)generateWorld();
@@ -462,6 +455,8 @@ function ensureWorld(){
    f.history=f.history.map(h=>({...h,date:h.date||dateLabel(h.day||s.day),event:h.event||historyEventName(h.org||f.org),org:h.org||f.org,venue:h.venue||choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Riyadh Arena","London"]),card:h.card||fightCardSlot(3),status:h.status||"Завершён"}));
    if(!f.worldNextFightDay)f.worldNextFightDay=s.day+rand(14,70)
  })
+ s.worldPrepared=true;
+ save();
 }
 function updateRankings(){
  ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
@@ -651,7 +646,7 @@ function normalizeSave(){
  });
  ensureTitleState();updateRankings();
 }
-function render(){normalizeSave();ensureWorld();renderTop();document.getElementById("nav").style.display=s.setup?"grid":"none";if(!s.setup){setup();return} page(window._page||"home")}
+function render(){renderTop();if(!s.setup){document.getElementById("nav").style.display="none";setup();return}normalizeSave();ensureWorld();document.getElementById("nav").style.display="grid";page(window._page||"home")}
 function setup(){
 document.getElementById("content").innerHTML=`<section class="panel" style="margin-top:25vh"><div class="eyebrow">ROAD TO CHAMPION</div><div class="title">MMA MANAGER</div><p class="muted">Полноценная мобильная карьера менеджера: поиск бойцов, контракты, лиги, рейтинги, лагеря, травмы и симуляция боёв.</p><div class="actions one"><button class="primary" id="newCareer">Начать новую карьеру</button><button id="loadCareer">Загрузить карьеру</button></div></section>`;
 document.getElementById("newCareer").onclick=()=>newCareer();document.getElementById("loadCareer").onclick=()=>savesModal()}
