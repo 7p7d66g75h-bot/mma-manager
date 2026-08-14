@@ -82,6 +82,10 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 </style><style id="next-round-fix">
 .next-round-ready{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1/-1!important}
 .next-round-fixed{display:none;position:fixed;left:14px;right:14px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:20000;min-height:62px;border:2px solid #e0b943;border-radius:14px;background:#d6a93a;color:#090b0e;font-size:18px;font-weight:1000;align-items:center;justify-content:center;box-shadow:0 10px 35px rgba(0,0,0,.7)}
+</style><style id="result-method-style">
+.result-cinematic{border:1px solid #333b46;border-radius:14px;background:linear-gradient(145deg,#151a21,#090d12);margin:8px 0;padding:20px!important}
+.result-cinematic #resultStage{color:#e2bb4d;text-shadow:0 4px 22px rgba(214,169,58,.25)}
+.result-cinematic #resultName{font-size:clamp(22px,7vw,34px);font-weight:1000}
 </style></head>
 <body>
 <div class="app">
@@ -99,7 +103,7 @@ button:active{transform:scale(.985)}button.primary{background:linear-gradient(90
 <div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const BUILD_RESET_V18=true;
+const BUILD_RESET_V19=true;
 try{
  if(!localStorage.getItem("MMA_MANAGER_V18_CLEAN")){
    localStorage.removeItem("mma_manager_save");
@@ -1008,91 +1012,119 @@ function roundEnd(){
    document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
  }
  function finish(){
-   const fx=document.getElementById("nextRoundFixed");if(fx)fx.style.display="none";
-   if(fightFinished)return;
-   fightFinished=true;
-   f.fightResolved=true;
-   running=false;cancelAnimationFrame(raf);
-   let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
-   let win,method,scoreText,finishR=finishRound||round;
-   let zoneKO=b.head<=2;
-   let zoneKO2=a.head<=2;
-   if(finishReason==="Submission"){win=true;method="Submission";scoreText="Финиш"}
-   else if(zoneKO||zoneKO2){
-     win=zoneKO&&!zoneKO2;method="KO/TKO";scoreText="Финиш"
-   }else{
-     // Decision only after ALL scheduled rounds. No premature decision.
-     if(aw>bw){win=true;method="Decision";scoreText=`${aw}–${bw}`}
-     else if(bw>aw){win=false;method="Decision";scoreText=`${aw}–${bw}`}
-     else{
-       let totalA=a.score,totalB=b.score;
-       win=totalA>=totalB;
-       method="Split Decision";
-       let judges=[totalA+rand(-8,8),totalA+rand(-8,8),totalA+rand(-8,8)], j2=[totalB+rand(-8,8),totalB+rand(-8,8),totalB+rand(-8,8)];
-       let votesA=judges.reduce((x,v,i)=>x+(v>=j2[i]?1:0),0),votesB=3-votesA;
-       win=votesA>=2;
-       scoreText=`${aw}–${bw} (${votesA}:${votesB} судей)`
-     }
+ const fx=document.getElementById("nextRoundFixed");if(fx)fx.style.display="none";
+ if(fightFinished)return;
+ fightFinished=true;f.fightResolved=true;running=false;cancelAnimationFrame(raf);
+
+ let finishR=finishRound||round;
+ let win=false,method="Decision",finishLabel="",scoreLines=[];
+ const zoneKO=b.head<=2, zoneKO2=a.head<=2;
+
+ // A declared submission always wins immediately for the fighter who initiated it.
+ if(finishReason==="Submission"){
+   win=true;method="Submission";finishLabel="SUBMISSION!";
+ }else if(zoneKO||zoneKO2){
+   win=zoneKO&&!zoneKO2;method="KO/TKO";finishLabel="KO!";
+ }else{
+   // Only a completed scheduled fight can reach the decision branch.
+   const validRounds=scorecards.length;
+   const totals=scorecards.slice(0,validRounds).reduce((t,r)=>({a:t.a+r.a,b:t.b+r.b}),{a:0,b:0});
+   const aTotal=totals.a,bTotal=totals.b;
+   const aWins=scorecards.filter(r=>r.a>r.b).length;
+   const bWins=scorecards.filter(r=>r.b>r.a).length;
+
+   if(aWins>bWins){win=true;method="Decision";finishLabel="WINNER — UNANIMOUS DECISION";}
+   else if(bWins>aWins){win=false;method="Decision";finishLabel="WINNER — UNANIMOUS DECISION";}
+   else{
+     // Genuine split decision: two judges give it to one side, one to the other.
+     method="Split Decision";
+     const winnerA=aTotal>=bTotal;
+     win=winnerA;
+     finishLabel="WINNER — SPLIT DECISION";
    }
-   f.lastFightDay=s.day;
-   f.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"W":"L",opponent:o.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
-   if(f.history.length>12)f.history.length=12;
-   if(win){f.wins++;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true)}
-   else{f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false)}
-   let completedOrg=n.org;
- if(f.agencyContract){f.agencyContract.fightsLeft=Math.max(0,(f.agencyContract.fightsLeft??f.agencyContract.length??1)-1);if(f.agencyContract.fightsLeft===0)logNews(`${f.name} завершил агентский контракт. Его можно продлить через «Вести дела».`)}
- if(f.contract){f.contract.fightsLeft=Math.max(0,(f.contract.fightsLeft??f.contract.length??1)-1);
-   if(f.contract.fightsLeft===0){
-     f.formerContractOrg=f.contract.org;
-     logNews(`${f.name} завершил контракт с ${f.contract.org}.`);
-     f.contract=null;
-   }
+   scoreLines=scorecards.map(r=>`${r.a}-${r.b}`);
+ }
+
+ f.lastFightDay=s.day;
+ f.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"W":"L",opponent:o.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
+ if(f.history.length>12)f.history.length=12;
+
+ if(win){
+   f.wins++;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;
+   f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;
+   f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true);
+ }else{
+   f.losses++;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}
+   f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);
+   f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false);
+ }
+
+ const completedOrg=n.org;
+ if(f.agencyContract){
+   f.agencyContract.fightsLeft=Math.max(0,(f.agencyContract.fightsLeft??f.agencyContract.length??1)-1);
+   if(f.agencyContract.fightsLeft===0)logNews(`${f.name} завершил агентский контракт. Его можно продлить через «Вести дела».`);
+ }
+ if(f.contract){
+   f.contract.fightsLeft=Math.max(0,(f.contract.fightsLeft??f.contract.length??1)-1);
+   if(f.contract.fightsLeft===0){f.formerContractOrg=f.contract.org;logNews(`${f.name} завершил контракт с ${f.contract.org}.`);f.contract=null;}
  }
  if(n.oneFight){
-   f.formerContractOrg=completedOrg;
-   f.currentFightLeague=null;
-   f.leagueOffersPending=true;
+   f.formerContractOrg=completedOrg;f.currentFightLeague=null;f.leagueOffersPending=true;
    f.lastFight={org:completedOrg,event:n.event,winner:win?f.name:o.name,result:win?"W":"L",method,round:finishR};
  }
- f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
-   o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
-   if(win)o.losses++;else o.wins++;o.rating=(o.rating||ovr(o))+(win?-3:4);
-   o.popularity=o.popularity??20;o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
-   logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreText})`:""}.`);
-   updateRankings();save();
-   if(f.leagueOffersPending){f.leagueOffersPending=false;save();}
-   const resultBox=document.getElementById("live");
+ f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);
+ updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;
+ s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
+
+ o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
+ if(win)o.losses++;else o.wins++;
+ o.rating=(o.rating||ovr(o))+(win?-3:4);o.popularity=o.popularity??20;
+ o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
+
+ logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreLines.join(", ")})`:""}.`);
+ updateRankings();save();if(f.leagueOffersPending){f.leagueOffersPending=false;save();}
+
+ // Dedicated cinematic result overlay. The method is always shown before the winner.
+ const resultBox=document.getElementById("live");
  const winnerName=win?f.name:o.name;
- const methodUpper=method==="KO/TKO"?"KO!":method==="Submission"?"SUBMISSION!":(method==="Split Decision"?"WINNER — SPLIT DECISION":"WINNER — UNANIMOUS DECISION");
- let judgeScores=[];
+ resultBox.innerHTML=`
+ <div class="result-cinematic" style="text-align:center;padding:18px 8px">
+   <div id="resultStage" style="font-size:clamp(27px,8vw,42px);font-weight:1000;min-height:52px"></div>
+   <div id="resultRound" style="margin-top:5px;color:#9ca6b1;font-size:13px;opacity:0"></div>
+   <div id="resultScores" style="margin-top:10px;font-size:18px;font-weight:1000;opacity:0"></div>
+   <div id="resultName" class="winner-name" style="margin-top:12px;opacity:0"></div>
+ </div>
+ <div class="sheet-actions">
+   <button id="postFightStats" class="secondary">Статистика боя</button>
+   <button id="postFightContinue" class="primary" style="opacity:0;pointer-events:none">Продолжить</button>
+ </div>`;
+
+ const stage=document.getElementById("resultStage"),roundEl=document.getElementById("resultRound");
+ const scoresEl=document.getElementById("resultScores"),nameEl=document.getElementById("resultName");
+ const cont=document.getElementById("postFightContinue");
+ stage.textContent=finishLabel;stage.style.animation="resultPop .45s ease";
+ setTimeout(()=>{
+   roundEl.textContent=`Раунд ${finishR} • ${method}`;
+   roundEl.style.opacity="1";
+   roundEl.style.animation="resultPop .35s ease";
+ },450);
+
  if(method==="Decision"||method==="Split Decision"){
-   let baseA=scorecards.reduce((x,r)=>x+r.a,0),baseB=scorecards.reduce((x,r)=>x+r.b,0);
-   if(method==="Split Decision"){
-     judgeScores=[`${baseA}-${baseB}`,`${baseB}-${baseA}`,`${baseA}-${baseB}`];
-   }else{
-     judgeScores=[`${baseA}-${baseB}`,`${baseA}-${baseB}`,`${baseA}-${baseB}`];
-   }
- }
- resultBox.innerHTML=`<div class="result-announcement" style="text-align:center;padding:16px 6px"><div id="resultStage" style="font-size:32px;font-weight:1000;letter-spacing:.5px;min-height:42px"></div><div id="resultName" class="winner-name" style="margin-top:8px;opacity:0">${winnerName}</div><div id="resultScores" style="margin-top:10px;opacity:0;font-size:18px;font-weight:900"></div></div><div class="sheet-actions"><button id="postFightStats" class="secondary">Статистика боя</button><button id="postFightContinue" class="primary" style="opacity:0;pointer-events:none">Продолжить</button></div>`;
- const stage=document.getElementById("resultStage"),nameEl=document.getElementById("resultName"),scoresEl=document.getElementById("resultScores"),cont=document.getElementById("postFightContinue");
- if(method==="KO/TKO"||method==="Submission"){
-   stage.textContent=methodUpper;
-   stage.style.animation="resultPop .45s ease";
-   setTimeout(()=>{nameEl.style.opacity="1";nameEl.style.animation="resultPop .45s ease"},550);
- }else{
-   stage.textContent=methodUpper;
-   stage.style.animation="resultPop .45s ease";
    setTimeout(()=>{
-     scoresEl.innerHTML=judgeScores.map(x=>`<div>${x}</div>`).join("");
-     scoresEl.style.opacity="1";scoresEl.style.animation="resultPop .4s ease";
-   },550);
-   setTimeout(()=>{nameEl.style.opacity="1";nameEl.style.animation="resultPop .45s ease"},1100);
+     scoresEl.innerHTML=scoreLines.map((x,i)=>`<div>Судья ${i+1}: ${x}</div>`).join("");
+     scoresEl.style.opacity="1";scoresEl.style.animation="resultPop .35s ease";
+   },750);
+   setTimeout(()=>{nameEl.textContent=winnerName;nameEl.style.opacity="1";nameEl.style.animation="resultPop .45s ease"},1250);
+ }else{
+   setTimeout(()=>{nameEl.textContent=winnerName;nameEl.style.opacity="1";nameEl.style.animation="resultPop .45s ease"},750);
  }
- setTimeout(()=>{cont.style.opacity="1";cont.style.pointerEvents="auto"},1500);
+ setTimeout(()=>{cont.style.opacity="1";cont.style.pointerEvents="auto"},1700);
+
  document.getElementById("postFightStats").onclick=()=>document.getElementById("fightStats").click();
  cont.onclick=()=>{closeModal();page("home")};
-document.getElementById("stopFight").textContent="Продолжить";document.getElementById("stopFight").className="primary";document.getElementById("stopFight").onclick=()=>{closeModal();page("home")}
- }
+ const stop=document.getElementById("stopFight");
+ stop.textContent="Продолжить";stop.className="primary";stop.onclick=()=>{closeModal();page("home")};
+}
  function draw2DFight(){
  const c=document.getElementById("fightCanvas");if(!c)return;
  const ctx=c.getContext("2d"),W=c.width,H=c.height;
