@@ -58,6 +58,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html backups/index-v35-before-championship.html
-          if git diff --cached --quiet; then echo 'No changes to commit'; exit 0; fi
-          git commit -m 'V36: complete championship and belt system'
-          git push --force-with-lease origin main
+          git commit -m 'V36: complete championship and belt system' || true
+          git push --force origin HEAD:main
