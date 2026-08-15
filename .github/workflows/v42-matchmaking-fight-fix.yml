@@ -1,0 +1,75 @@
+name: V42 matchmaking and fight stats fix
+on:
+  push:
+    paths:
+      - '.github/workflows/v42-matchmaking-fight-fix.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch matchmaking and fight simulation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          old='''   let opps=pool.filter(x=>{\n     let rp=getPos(x);\n     if(isChamp) return rp>0&&rp<=8;\n     if(fp>0&&fp<=15) return rp>0&&Math.abs(rp-fp)<=8;\n     return Math.abs(ovr(x)-ovr(f))<=12;\n   }).sort((a,b)=>Math.abs(ovr(a)-ovr(f))-Math.abs(ovr(b)-ovr(f)));'''
+          new='''   let opps=pool.filter(x=>{\n     let rp=getPos(x);\n     if(isChamp) return rp>0&&rp<=8;\n     if(fp>0&&fp<=15) return rp>0&&Math.abs(rp-fp)<=8;\n     return Math.abs(ovr(x)-ovr(f))<=12;\n   }).sort((a,b)=>Math.abs(ovr(a)-ovr(f))-Math.abs(ovr(b)-ovr(f)));'''
+          # Keep the existing opponent ranking logic; the actual diversity fix is applied below.
+          if old not in s: raise SystemExit('opponent block not found')
+
+          old='''   opps.slice(0,2).forEach(o=>{'''
+          new='''   opps.slice(0,1).forEach(o=>{'''
+          if old not in s: raise SystemExit('per-league opponent limit not found')
+          s=s.replace(old,new,1)
+
+          old=''' let candidates=rows.slice(0,2);'''
+          new=''' let candidates=[];\n rows.sort(()=>Math.random()-.5).forEach(r=>{\n   if(candidates.length>=2)return;\n   if(!candidates.some(x=>x.org===r.org))candidates.push(r);\n });'''
+          if old not in s: raise SystemExit('candidate selection block not found')
+          s=s.replace(old,new,1)
+
+          old=''' let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);matchmake()};'''
+          new=''' let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);requestAnimationFrame(()=>matchmake())};'''
+          if old not in s: raise SystemExit('organize fight button handler not found')
+          s=s.replace(old,new,1)
+
+          old=''' function hit(att,def,attF){\n   let zone=Math.random(),dmg=0,label="";\n   let hand=(attF.handPower||attF.power||70),leg=(attF.legPower||attF.power||70);\n   let accuracy=((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220;\n   if(zone<.45){dmg=rand(0,2)+Math.max(0,Math.round((hand-88)/55));def.head-=dmg;label="в голову"}'''
+          new=''' function hit(att,def,attF){\n   let zone=Math.random(),dmg=0,label="";\n   let hand=(attF.handPower||attF.power||70),leg=(attF.legPower||attF.power||70);\n   let accuracy=clamp(((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220,.55,.88);\n   if(Math.random()>accuracy){return "не попадает"}\n   if(zone<.45){dmg=rand(0,2)+Math.max(0,Math.round((hand-88)/55));def.head-=dmg;label="в голову"}'''
+          if old not in s: raise SystemExit('hit function block not found')
+          s=s.replace(old,new,1)
+
+          old='''   }else if(t<.84){\n     let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;'''
+          new='''   }else if(t<.76){\n     let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;'''
+          if old not in s: raise SystemExit('takedown event threshold not found')
+          s=s.replace(old,new,1)
+
+          old='''     if(Math.random()+tdEdge>.52){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}\n     else if(Math.random()-tdEdge>.48){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}'''
+          new='''     if(a.td<3&&Math.random()+tdEdge>.62){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}\n     else if(b.td<3&&Math.random()-tdEdge>.58){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}'''
+          if old not in s: raise SystemExit('takedown success block not found')
+          s=s.replace(old,new,1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<script>(.*?)</script>',s,re.S)
+          if not m: raise SystemExit('script block not found')
+          Path('/tmp/game.js').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'V42: diversify fight offers and fix fight stats [skip ci]'
+          git push
