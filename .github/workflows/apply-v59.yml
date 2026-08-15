@@ -1,4 +1,4 @@
-name: Apply V59 stable fix
+name: Apply V61 stable fix
 on:
   push:
     branches: [main]
@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'Apply V60 stable fix')
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'Apply V61 stable fix')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,20 +19,20 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          assert 'MMA_MANAGER_V60_STABLE_FIX' in s
+          assert 'MMA_MANAGER_V61_STABLE_FIX' in s
           assert 'MMA_MANAGER_V53_PRESERVE_MECHANICS' not in s
           assert 'function v52HistoryUI(){try{' in s
           assert '[data-change-camp]' in s
           assert '[data-campstyle]' in s
           assert '[data-fighter-match]' in s
-          assert 's.selected=s.fighters.findIndex(x=>x.id===f.id);save();matchmake()' in s
-          print('V60 validation OK')
+          assert 'window.MMA_MANAGER_V61_FIX=true' in s
+          print('V61 validation OK')
           PY
       - name: Commit repaired index
         run: |
           git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.email '41898282+github-actions[bot]'
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m 'Apply V60 stable fix'
+          git commit -m 'Apply V61 stable fix'
           git push
