@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V52_CONTRACT_FIX";
+  const BUILD="MMA_MANAGER_V53_PRESERVE_MECHANICS";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V52 • Road to Champion</title>
+<title>MMA Manager V53 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -200,6 +200,9 @@ html[data-build="MMA_MANAGER_V31"]::before{
 .v51-contract-overlay{position:fixed!important;inset:0!important;z-index:2147483647!important;background:rgba(0,0,0,.94)!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:18px!important;box-sizing:border-box}.v51-contract-warning{width:min(680px,100%);max-height:92dvh;overflow:auto;background:linear-gradient(155deg,#171b21,#080b0f);border:2px solid #8d2525;border-radius:18px;padding:22px;box-shadow:0 25px 100px #000}.v51-warning-icon{font-size:54px;text-align:center}.v51-warning-title{font-size:clamp(24px,7vw,38px);font-weight:1000;text-align:center;margin:8px 0}.v51-warning-sub{text-align:center;color:#c8cdd3;font-size:13px;line-height:1.45}.v51-risk{margin:15px 0;padding:13px;border:1px solid #5e3434;background:#211416;border-radius:10px}.v51-risk b{color:#ef7777}.v51-reason{display:grid;gap:7px;margin-top:14px}.v51-reason button{text-align:left}.v51-reason button.selected{border-color:#d5ae42;background:#292314}.v51-contract-history{margin-top:10px}.v51-contract-entry{padding:10px 0;border-bottom:1px solid #2b3138}.v51-contract-entry:last-child{border-bottom:0}.v51-contract-entry b{display:block}.v51-contract-entry small{display:block;color:#8e98a4;margin-top:3px}.v51-status-fired{color:#dc7777}.v51-status-ended{color:#d5ae42}.v51-status-left{color:#8eb4e6}.v51-status-active{color:#63c78a}
 </style><style id="contract-fix-v52-css">
 .v52-contract-overlay{position:fixed!important;inset:0!important;z-index:2147483647!important;background:rgba(0,0,0,.96)!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:18px!important;overflow:auto!important}.v52-contract-card{width:min(700px,100%);max-height:94dvh;overflow:auto;background:linear-gradient(155deg,#171b21,#080b0f);border:2px solid #9b2d2d;border-radius:18px;padding:22px;box-shadow:0 25px 100px #000}.v52-reasons{display:grid;gap:7px;margin-top:12px}.v52-reasons button{text-align:left}.v52-reasons button.selected{border-color:#d5ae42;background:#292314}.v52-risk{margin:14px 0;padding:13px;border:1px solid #653838;background:#211416;border-radius:10px}.v52-history{margin-top:10px}.v52-history-entry{padding:10px 0;border-bottom:1px solid #2b3138}.v52-history-entry:last-child{border-bottom:0}.v52-history-entry small{display:block;color:#8e98a4;margin-top:3px}.v52-active{color:#63c78a}.v52-fired{color:#dc7777}.v52-ended{color:#d5ae42}.v52-left{color:#8eb4e6}
+</style><style id="v53-preserve-mechanics-css">
+.v53-contract-dock{position:fixed;z-index:45;left:0;right:0;bottom:61px;display:none;background:rgba(10,13,17,.97);border-top:1px solid #3a414b;box-shadow:0 -8px 24px #0008;padding:7px max(8px,env(safe-area-inset-left)) 7px max(8px,env(safe-area-inset-right));backdrop-filter:blur(12px)}
+.v53-contract-dock.show{display:block}.v53-contract-inner{width:min(760px,100%);margin:auto;display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center}.v53-contract-main{min-width:0}.v53-contract-main b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.v53-contract-main span{display:block;color:#8e98a4;font-size:10px;margin-top:2px}.v53-contract-dock button{min-height:38px;padding:7px 9px;font-size:10px}.v53-history-panel{position:fixed;z-index:2147483646;left:0;right:0;bottom:0;top:0;background:#000b;display:none;align-items:flex-end}.v53-history-panel.open{display:flex}.v53-history-sheet{width:min(760px,100%);max-height:80dvh;overflow:auto;background:#0b0f14;border:1px solid #303740;border-radius:15px 15px 0 0;padding:15px;margin:auto auto 0}.v53-history-entry{padding:10px 0;border-bottom:1px solid #292f37}.v53-history-entry:last-child{border-bottom:0}
 </style></head>
 <body>
 <div class="app">
@@ -648,7 +651,7 @@ function managerInfluence(){
  return {rating:r,pop:p,tier:managerTier(),feeMult:1+(r-50)*0.006+(p-20)*0.002,
         offerQuality:Math.round(r*.7+p*.3),leagueAccess:r>=70?4:r>=55?3:r>=40?2:1};
 }
-function contractTerms(f,org){
+function contractTermsLegacy(f,org){
  let r=ovr(f), tier=org.level;
  let salary;
  if(org.name==="UFC")salary=Math.round(10000+Math.max(0,r-70)*650);
@@ -1307,6 +1310,7 @@ function _matchmakeHeavy(){
      acceptFightDisciplineBonus(f);
      acceptFightDisciplineBonus(f);
      acceptFightDisciplineBonus(f);
+     acceptFightDisciplineBonus(f);
      f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campPerformance=f.campStyle==="peak"?8:(f.campStyle==="conditioning"?5:3);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;
      logNews(`${f.name} принял бой в ${c.org} против ${c.opponent.name}.`);save();closeModal();page("home");toast(`Бой согласован: ${c.org}`);
    };
@@ -1834,6 +1838,93 @@ function v52SyncCurrentContract(f){v52Ensure(f);if(f.contract){const exists=f.co
 function v52HistoryUI(){try{const sheet=document.getElementById('sheet');if(!sheet)return;const f=typeof currentF==='function'?currentF():null;if(!f)return;v52SyncCurrentContract(f);let box=document.getElementById('v52HistoryPanel');if(box)box.remove();const entries=f.contractHistory||[];box=document.createElement('section');box.id='v52HistoryPanel';box.className='panel v52-history';box.innerHTML=`<div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div>${entries.length?entries.map(h=>{const cls=h.status==='fired'?'v52-fired':h.status==='ended'?'v52-ended':h.status==='left'?'v52-left':'v52-active';const label=h.status==='fired'?'УВОЛЕН':h.status==='ended'?'ЗАВЕРШЁН':h.status==='left'?'УШЁЛ САМ':h.status==='warning'?'ПРЕДУПРЕЖДЕНИЕ':h.status==='final_warning'?'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ':'ДЕЙСТВУЕТ';return`<div class="v52-history-entry"><b>${h.org||'Лига'} — <span class="${cls}">${label}</span></b><small>${h.date||dateLabel(h.day||s.day)}${h.reason?' • '+h.reason:''}</small>${h.fights?`<small>Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</small>`:''}</div>`}).join(''):'<div class="muted">Контрактов пока нет.</div>'}`;const anchor=[...sheet.querySelectorAll('.panel')].find(x=>(x.innerText||'').includes('Контракт'));if(anchor)anchor.after(box);else sheet.appendChild(box);}catch(e){console.warn('V52 history UI',e)}}
 new MutationObserver(()=>setTimeout(v52HistoryUI,0)).observe(document.body,{childList:true,subtree:true});setTimeout(v52HistoryUI,300);
 window.MMA_MANAGER_V52_CONTRACT_FIX=true;
+})();
+</script>
+<script id="MMA_MANAGER_V53_PRESERVE_MECHANICS">
+(function(){'use strict';
+  // V53 is additive: old mechanics remain authoritative unless explicitly corrected below.
+  const OLD_CONTRACT_TERMS = typeof contractTermsLegacy==='function' ? contractTermsLegacy : null;
+  window.contractTerms = function(f,org){
+    let base=OLD_CONTRACT_TERMS ? OLD_CONTRACT_TERMS(f,org) : {salary:0,purse:0};
+    base=base||{};
+    if(org && org.name==='UFC'){
+      // UFC's established base contract must never collapse to regional-level money.
+      const ufcBase=150000;
+      const wins=Number(f?.wins||0);
+      const experienceBonus=Math.min(50000,Math.max(0,wins-3)*10000);
+      const salary=ufcBase+experienceBonus;
+      base.salary=Math.max(Number(base.salary||0),salary);
+      base.purse=Math.max(Number(base.purse||0),salary);
+    }
+    return base;
+  };
+
+  function esc(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
+  function current(){try{return typeof currentF==='function'?currentF():null}catch(e){return null}}
+  function ensure(f){if(!f)return;f.contractHistory=Array.isArray(f.contractHistory)?f.contractHistory:[]}
+  function addHistory(f,status,reason,extra={}){ensure(f);f.contractHistory.unshift(Object.assign({org:f.contract?.org||f.formerContractOrg||f.currentFightLeague||'—',status,reason,day:s.day,date:typeof dateLabel==='function'?dateLabel(s.day):`День ${s.day}`},extra));f.contractHistory=f.contractHistory.slice(0,50)}
+
+  function terminateContract(f){
+    if(!f?.contract){toast('У бойца нет действующего контракта');return}
+    const org=f.contract.org;
+    const left=f.contract.fightsLeft ?? f.contract.length ?? 0;
+    if(!confirm(`Расторгнуть контракт ${f.name} с ${org}?\n\nОставшиеся бои: ${left}.`))return;
+    addHistory(f,'left','Контракт расторгнут менеджером',{fightsLeft:left});
+    f.formerContractOrg=org;
+    f.formerContractReason='Контракт расторгнут менеджером';
+    f.contract=null;
+    f.leagueOffers=[];
+    f.matchmakeSeen=[];
+    f.currentFightLeague=null;
+    save();
+    if(typeof updateRankings==='function')updateRankings();
+    renderDock();
+    if(typeof manageFighter==='function')manageFighter(f); else if(typeof page==='function')page('roster');
+    toast(`${f.name}: контракт с ${org} расторгнут`);
+  }
+
+  function renderHistory(f){
+    ensure(f);
+    const entries=f.contractHistory||[];
+    const old=document.getElementById('v53HistoryPanel');if(old)old.remove();
+    const panel=document.createElement('div');panel.id='v53HistoryPanel';panel.className='v53-history-panel';
+    panel.innerHTML=`<div class="v53-history-sheet"><div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div>${entries.length?entries.map(h=>{const label={active:'ПОДПИСАН',ended:'ЗАВЕРШЁН',left:'РАСТОРГНУТ',fired:'УВОЛЕН',warning:'ПРЕДУПРЕЖДЕНИЕ',final_warning:'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ'}[h.status]||String(h.status||'СОБЫТИЕ').toUpperCase();return `<div class="v53-history-entry"><b>${esc(h.org||'Лига')} — ${label}</b><div class="muted">${esc(h.date||('День '+h.day))}${h.reason?' • '+esc(h.reason):''}</div>${h.fights?`<div class="muted">Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</div>`:''}</div>`}).join(''):'<div class="muted">История контрактов пока пуста.</div>'}<div class="sheet-actions"><button id="v53HistoryClose">Закрыть</button></div></div>`;
+    document.body.appendChild(panel);panel.classList.add('open');panel.addEventListener('click',e=>{if(e.target===panel||e.target.closest('#v53HistoryClose'))panel.remove()});
+  }
+
+  function renderDock(){
+    let dock=document.getElementById('v53ContractDock');
+    if(!dock){dock=document.createElement('div');dock.id='v53ContractDock';dock.className='v53-contract-dock';document.body.appendChild(dock)}
+    const f=current();
+    if(!f?.contract){dock.classList.remove('show');dock.innerHTML='';return}
+    const c=f.contract;const left=c.fightsLeft??c.length??0;
+    dock.innerHTML=`<div class="v53-contract-inner"><div class="v53-contract-main"><b>КОНТРАК • ${esc(c.org)}</b><span>${esc(f.name)} • осталось ${left} ${left===1?'бой':'боя'} • $${Number(c.salary||0).toLocaleString('ru-RU')} / бой</span></div><button data-v53-history>История</button><button class="red" data-v53-terminate>Расторгнуть</button></div>`;
+    dock.classList.add('show');
+  }
+
+  // Fix the existing camp-change action without removing the original camp system.
+  document.addEventListener('click',function(e){
+    const change=e.target.closest?.('[data-change-camp]');
+    if(change){
+      e.preventDefault();e.stopImmediatePropagation();
+      const f=current();if(!f)return;
+      f.campChanging=true;save();if(typeof camp==='function')camp();return;
+    }
+    const style=e.target.closest?.('[data-campstyle]');
+    if(style){
+      e.preventDefault();e.stopImmediatePropagation();
+      const f=current(),id=style.dataset.campstyle;if(!f||!id)return;
+      f.campStyle=id;f.preferredCampStyle=id;f.campChanging=false;save();
+      if(typeof camp==='function')camp();
+    }
+    if(e.target.closest?.('[data-v53-history]')){e.preventDefault();e.stopImmediatePropagation();const f=current();if(f)renderHistory(f)}
+    if(e.target.closest?.('[data-v53-terminate]')){e.preventDefault();e.stopImmediatePropagation();terminateContract(current())}
+  },true);
+
+  // Make every newly rendered screen reflect the current fighter's contract.
+  new MutationObserver(()=>{try{renderDock()}catch(e){}}).observe(document.body,{childList:true,subtree:true});
+  setTimeout(renderDock,250);
+  window.V53PreserveMechanics={terminateContract,renderHistory,renderDock};
 })();
 </script>
 </body>
