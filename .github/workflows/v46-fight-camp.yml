@@ -1,0 +1,60 @@
+name: V46 fight result and camp controls
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          original=s
+          s=s.replace('const BUILD="MMA_MANAGER_V45";','const BUILD="MMA_MANAGER_V46";',1)
+          s=s.replace('<title>MMA Manager V44 • Road to Champion</title>','<title>MMA Manager V46 • Road to Champion</title>',1)
+          old='<button data-campfighter="${x.id}">Лагерь</button>'
+          new='<button data-campfighter="${x.id}" onclick="event.stopPropagation();window._openCampById(\'${x.id}\')">Лагерь</button>'
+          if old not in s: raise SystemExit('camp button target not found')
+          s=s.replace(old,new,1)
+          marker='function applyCampWeek(f){'
+          bridge='window._openCampById=function(id){const f=findById(id);if(!f){toast("Боец не найден");return}const i=s.fighters.findIndex(x=>x.id===f.id);if(i<0){toast("Боец не в ростере");return}s.selected=i;save();camp()};\n\n'
+          if marker not in s: raise SystemExit('camp function marker not found')
+          s=s.replace(marker,bridge+marker,1)
+          old='overlay.className="fight-result-overlay";'
+          new='overlay.className="fight-result-overlay";overlay.style.zIndex="2147483645";overlay.style.pointerEvents="auto";overlay.style.touchAction="manipulation";'
+          if old not in s: raise SystemExit('result overlay target not found')
+          s=s.replace(old,new,1)
+          old='document.getElementById("frStats").onclick=(e)=>{\n   e.preventDefault(); e.stopPropagation();\n   if(typeof openFightStatsOverlay==="function") openFightStatsOverlay();\n };'
+          new='document.getElementById("frStats").onclick=(e)=>{e.preventDefault();e.stopPropagation();openFightStatsOverlay()};\n overlay.addEventListener("click",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});\n overlay.addEventListener("pointerup",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});'
+          if old not in s: raise SystemExit('frStats binding target not found')
+          s=s.replace(old,new,1)
+          old='ov.style.cssText="position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";'
+          new='ov.style.cssText="position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";'
+          if old not in s: raise SystemExit('stats overlay css target not found')
+          s=s.replace(old,new,1)
+          if s==original: raise SystemExit('no changes made')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          js=s[s.index('<script>')+8:s.rindex('</script>')]
+          Path('/tmp/game.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'V46: fix fight stats and camp controls [skip v46]'
+          git push
