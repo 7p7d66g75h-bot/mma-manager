@@ -17,11 +17,12 @@ jobs:
           import re
           s=Path('index.html').read_text(encoding='utf-8')
           out=[]
-          for pat in [r'function\s+\w*(?:camp|profile|fight|match|bout)\w*\s*\([^)]*\)',r'window\._\w+',r'data-[\w-]+',r'Организовать[^<]{0,80}',r'Назначить[^<]{0,80}',r'Бой[^<]{0,80}']:
-            out.append('\nPATTERN '+pat+'\n')
-            for m in list(re.finditer(pat,s,re.I))[:80]:
-              a=max(0,m.start()-220);b=min(len(s),m.end()+420)
-              out.append(s[a:b].replace('\n',' ')+'\n---\n')
+          for name,nextname in [('profile','rosterProfile'),('camp','applyCampWeek'),('simulateFight','draw2DFight')]:
+            a=s.find('function '+name+'(')
+            b=s.find('function '+nextname+'(',a+1) if a>=0 else -1
+            if a>=0:
+              if b<0:b=min(len(s),a+30000)
+              out.append('\n===== '+name+' =====\n'+s[a:b]+'\n')
           Path('inspect.txt').write_text(''.join(out),encoding='utf-8')
           PY
       - name: Commit
@@ -29,5 +30,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add inspect.txt
-          git commit -m 'inspect structure [skip inspect]'
+          git commit -m 'inspect fight logic [skip inspect]'
           git push
