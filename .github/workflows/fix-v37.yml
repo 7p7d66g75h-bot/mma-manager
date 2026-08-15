@@ -40,13 +40,9 @@ jobs:
           s=s.replace('<title>MMA Manager V36 • Road to Champion</title>','<title>MMA Manager V37 • Road to Champion</title>',1)
           p.write_text(s)
           PY
-          node --check <(python3 - <<'PY2'
-          import re
-          x=open('index.html').read(); print(re.search(r'<script>(.*)</script>',x,re.S).group(1))
-          PY2
-          ) || true
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git commit -m 'V37: fix button responsiveness and championship display' || exit 0
+          git commit -m 'V37: fix button responsiveness and championship display' || true
+          git pull --rebase origin main
           git push
