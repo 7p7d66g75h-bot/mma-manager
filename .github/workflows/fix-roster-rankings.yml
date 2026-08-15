@@ -1,0 +1,61 @@
+name: Fix roster + ranking consistency
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[skip roster patch]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch roster and rankings
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # 1) Signing an agency contract must actually move the fighter into the user's roster.
+          old='f.agencyContract={length:term,fightsLeft:term,fee:c.signing,renewalFee:c.renewal,started:s.day};f.agencyManaged=true;f.agencySince=f.agencySince||s.day;save();closeModal();page("roster");toast(`${f.name}: контракт на ${term} ${term===1?"бой":"боя"} подписан`)}'
+          new='f.agencyContract={length:term,fightsLeft:term,fee:c.signing,renewalFee:c.renewal,started:s.day};f.agencyManaged=true;f.agencySince=f.agencySince||s.day;f.leagueOffers=[];f.nextFight=null;if(!s.fighters.some(x=>x.id===f.id)){s.fighters.push(f)}s.world=(s.world||[]).filter(x=>x.id!==f.id);s.marketPool=(s.marketPool||[]).filter(id=>id!==f.id);s.selected=s.fighters.findIndex(x=>x.id===f.id);updateRankings();save();closeModal();page("roster");toast(`${f.name}: контракт на ${term} ${term===1?"бой":"боя"} подписан`)}'
+          if old not in s:
+              raise SystemExit('agency confirmation target not found')
+          s=s.replace(old,new,1)
+
+          # 2) Rankings must be built from a unique fighter set. A fighter can never occupy two slots.
+          old='let pool=[...s.world,...s.fighters];'
+          new='let seenRankIds=new Set();let pool=[...s.world,...s.fighters].filter(f=>{if(!f||f.id==null||seenRankIds.has(f.id))return false;seenRankIds.add(f.id);return true});'
+          if old not in s:
+              raise SystemExit('ranking pool target not found')
+          s=s.replace(old,new,1)
+
+          # 3) In an organization weight-class ranking, the champion is NOT #1.
+          old='let arr=members.filter(f=>f.weight===w).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));'
+          new='let championId=s.titles?.[o.name]?.[w];let arr=members.filter(f=>f.weight===w&&f.id!==championId).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));'
+          if old not in s:
+              raise SystemExit('organization ranking target not found')
+          s=s.replace(old,new,1)
+
+          # 4) Harden title fights: never allow the same fighter to be both champion and a ranking contender,
+          # and never allow duplicate fighter IDs in a title fight.
+          old='function isTitleFightPair(f,o,org){if(!f||!o||!org)return false;const holder=titleHolder(org,f.weight);if(holder&&(holder.id===f.id||holder.id===o.id))return true;if(!holder){const rf=orgRank(f,org),ro=orgRank(o,org);return rf<=2&&ro<=2;}return false;}'
+          new='function isTitleFightPair(f,o,org){if(!f||!o||!org||f.id===o.id||f.weight!==o.weight)return false;const holder=titleHolder(org,f.weight);if(holder&&(holder.id===f.id||holder.id===o.id))return true;if(!holder){const rf=orgRank(f,org),ro=orgRank(o,org);return rf<=2&&ro<=2;}return false;}'
+          if old in s:
+              s=s.replace(old,new,1)
+
+          # 5) Build number from V37 to V38 so stale mobile/browser state is invalidated.
+          s=s.replace('const BUILD="MMA_MANAGER_V37";','const BUILD="MMA_MANAGER_V38";',1)
+          s=s.replace('<title>MMA Manager V37 • Road to Champion</title>','<title>MMA Manager V38 • Road to Champion</title>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'V38: fix roster and enforce champion ranking separation [skip roster patch]'
+          git push
