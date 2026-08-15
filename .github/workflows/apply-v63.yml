@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'Apply V63 restore original matchmaking')
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'V63 patch applied')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,5 +33,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m 'Apply V63 restore original matchmaking'
+          git commit -m 'V63 patch applied'
           git push
