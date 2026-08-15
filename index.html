@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V36";
+  const BUILD="MMA_MANAGER_V37";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,14 +22,14 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V36 • Road to Champion</title>
+<title>MMA Manager V37 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:#07090c;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
 html,body{width:100%;height:100%;height:100dvh;margin:0;overflow:hidden;padding:0}body{padding:0;overflow:hidden;overscroll-behavior:none}
 button,input,select{font:inherit}
-button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer}
+button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 button:active{transform:scale(.985)}button.primary{background:linear-gradient(90deg,#d7b24a,#a27c25);color:#0b0c0e;border-color:#d8b550}button.green{background:#244f36;border-color:#376e4c}button.red{background:#542a2a;border-color:#814141}button:disabled{opacity:.38}
 .app{width:min(760px,100%);height:100%;height:100dvh;margin:auto;padding:max(10px,env(safe-area-inset-top)) 10px 0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{position:sticky;top:0;z-index:20;background:rgba(7,9,12,.94);backdrop-filter:blur(12px);padding:8px 4px 10px;border-bottom:1px solid #20252d}
@@ -514,11 +514,14 @@ if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC()
    if(!f.worldNextFightDay)f.worldNextFightDay=s.day+rand(14,70)
  })
  rebalanceUFC();
+ ensureTitleState();
+ simulateVacantTitles();
+ updateRankings();
  s.worldPrepared=true;
  save();
 }
 function updateRankings(){
- if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
+ if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
  let pool=[...s.world,...s.fighters];
  for(let w of WEIGHTS){
    let arr=pool.filter(f=>f.weight===w).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
@@ -706,7 +709,7 @@ function normalizeSave(){
    if(!f.worldNextFightDay)f.worldNextFightDay=s.day+rand(21,90);
    if(f.org==="DWCS")f.org=randomWorldOrg(f).name;
  });
- if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();
+ if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();
 }
 function render(){
   renderTop();
@@ -791,7 +794,7 @@ function rankings(){
   if(!org)html+=`<section class="panel"><div class="eyebrow">WORLD P4P</div><div class="title">Мировой P4P TOP 15</div>${rankingRows(s.p4p||[],15)}</section><section class="panel"><div class="title">Мировой рейтинг TOP 300</div>${rankingRows(s.globalTop300||[],300)}</section>`;
   else{
    html+=`<section class="panel"><div class="eyebrow">${org.short}</div><div class="title">${org.name} P4P TOP 15</div>${rankingRows(s.p4pByOrg?.[org.name]||[],15)}</section><section class="panel"><div class="title">${org.name} — дивизионы</div>`;
-   for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];html+=`<div style="margin-top:12px"><div class="section-head"><h3>${w}</h3><span>TOP 15</span></div>${rankingRows(arr,15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`}
+   for(let w of WEIGHTS){html+=championCard(org.name,w);let arr=s.rankingsByOrg?.[org.name]?.[w]||[];html+=`<div style="margin-top:12px"><div class="section-head"><h3>${w}</h3><span>TOP 15</span></div>${rankingRows(arr,15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`}
    html+=`</section>`;
   }
  }
@@ -825,6 +828,9 @@ function advanceWorldWeek(){
  advanceWorld(step);
 }
 function simulateAIFight(f,o,org){
+ ensureTitleState();
+ let titleW=WEIGHTS.find(w=>f.weight===w&&o.weight===w&&s.titles?.[org]?.[w]);
+ if(titleW){let holder=findById(s.titles[org][titleW]);if(holder&&(holder.id===f.id||holder.id===o.id)){runTitleFight(ORGS.find(x=>x.name===org),titleW,f,o);return;}}
  let fav=(ovr(f)+f.form*.15+f.cardio*.1),dog=(ovr(o)+o.form*.15+o.cardio*.1),win=Math.random()<fav/(fav+dog);
  let roll=Math.random(),method=roll<.50?"Decision":roll<.78?"KO/TKO":"Submission",rounds=choice([3,3,3,5]),round=finishRoundFor({rounds},method);
  f.lastFightDay=s.day;o.lastFightDay=s.day;
