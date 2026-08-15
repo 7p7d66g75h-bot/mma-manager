@@ -731,7 +731,7 @@ function render(){
     return;
   }
   document.getElementById("nav").style.display="grid";
-  normalizeSave();
+  if(!s._normalized){ normalizeSave(); s._normalized=true; }
   const targetPage=window._page||"home";
   ({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[targetPage]||home)();
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===targetPage));
@@ -740,6 +740,7 @@ function render(){
     window._worldBuildTimer=setTimeout(()=>{
       try{
         ensureWorld();
+        s._normalized=true;
         renderTop();
         page(window._page||"home");
       }catch(e){
@@ -756,7 +757,7 @@ function newCareer(){
   s=clone(initial);
   s.setup=true;s.manager="Менеджер";s.day=1;s.money=25000;s.rep=5;
   s.trainingPoints=7;s.managerRating=30;s.managerPopularity=5;
-  s.world=[];s.worldPrepared=false;
+  s.world=[];s.worldPrepared=false;s._normalized=false;
   window._page="home";
   save();
   render();
@@ -1068,7 +1069,7 @@ document.getElementById("content").innerHTML=`<section class="panel"><div class=
 <section class="panel"><button class="red" style="width:100%" data-reset>Удалить карьеру</button></section>`;bindMore()}
 function bindMore(){document.querySelectorAll("[data-save]").forEach(b=>b.onclick=()=>saveSlot(+b.dataset.save));document.querySelectorAll("[data-load]").forEach(b=>b.onclick=()=>loadSlot(+b.dataset.load));document.querySelector("[data-reset]").onclick=()=>{if(confirm("Удалить текущую карьеру?")){localStorage.removeItem(KEY);s=clone(initial);render()}}}
 function saveSlot(n){localStorage.setItem(KEY+"_"+n,JSON.stringify(s));toast("Сохранено в слот "+n)}
-function loadSlot(n){let x=localStorage.getItem(KEY+"_"+n);if(!x){toast("Слот пуст");return}try{s=JSON.parse(x);ensureWorld();save();resetCareerData();
+function loadSlot(n){let x=localStorage.getItem(KEY+"_"+n);if(!x){toast("Слот пуст");return}try{s=JSON.parse(x);s._normalized=false;ensureWorld();save();resetCareerData();
 render();toast("Карьера загружена")}catch(e){toast("Ошибка сохранения")}}
 function market(){
  let pool=s.world.filter(f=>!s.fighters.some(x=>x.id===f.id)&&!f.contract&&f.rating<82);
@@ -1205,16 +1206,22 @@ function matchmake(){
    ? ORGS.filter(o=>o.name===f.contract.org)
    : ORGS.filter(o=>o.name!=="DWCS" && (s.managerRating||30)>=Math.max(20,o.unlock-10)).filter(o=>!isTopLeague(o.name)||topLeagueEligible(f,o.name));
  let rows=[];
+ let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));
+ let matchIndex=new Map();
+ for(const x of s.world){
+   if(!x||x.agencyManaged||x.name===f.name||x.weight!==f.weight||recentOpponents.has(x.name))continue;
+   const key=x.org+"|"+x.weight; let arr=matchIndex.get(key);
+   if(!arr){arr=[];matchIndex.set(key,arr)} arr.push(x);
+ }
  eligibleOrgs.forEach(org=>{
-   let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));
-   let pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&x.name!==f.name&&!recentOpponents.has(x.name)&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));
+   let pool=(matchIndex.get(org.name+"|"+f.weight)||[]).filter(x=>!isTopLeague(org.name)||topLeagueEligible(x,org.name));
    // Contracted fighters can only be matched inside their contracted promotion.
    // The same opponent is blocked for the last three completed fights to avoid unrealistic rematches.
    // Rank progression: champions only face top contenders; ranked fighters prefer nearby ranks.
    let fp=getPos(f);
    let isChamp=!!f.title;
    if(pool.length<3){
-     pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&x.name!==f.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));
+     // Do not rescan the full world here; the indexed pool is authoritative.
    }
    let opps=pool.filter(x=>{
      let rp=getPos(x);
@@ -1549,11 +1556,7 @@ function roundEnd(){
  });
 
  document.getElementById("frStats").onclick=()=>{
-   const statsBtn=document.getElementById("fightStats");
-   if(statsBtn){
-     statsBtn.style.display="block";
-     statsBtn.click();
-   }
+   if(typeof openFightStatsOverlay==="function") openFightStatsOverlay();
  };
  document.getElementById("frContinue").onclick=()=>{
    overlay.remove();
@@ -1659,7 +1662,7 @@ function frame(now){
 raf=requestAnimationFrame(frame)
  }
  
-document.getElementById("fightStats").onclick=()=>{
+function openFightStatsOverlay(){
  const old=document.getElementById("fightStatsOverlay"); if(old)old.remove();
  const ov=document.createElement("div");ov.id="fightStatsOverlay";
  ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);padding:18px;overflow:auto";
@@ -1683,7 +1686,9 @@ document.getElementById("fightStats").onclick=()=>{
  </div>`;document.body.appendChild(ov);
  document.getElementById("closeFightStats").onclick=()=>ov.remove();
  document.getElementById("closeFightStats2").onclick=()=>ov.remove();
-};
+}
+
+ document.getElementById("fightStats").onclick=openFightStatsOverlay;
 
 const fightControls=document.querySelector(".fight-controls");
 const nb=document.getElementById("nextRoundBtn"),pb=document.getElementById("changePlanBtn");
