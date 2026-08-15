@@ -1,13 +1,14 @@
 name: Apply V65 matchmaking patch
 
-on: push
+on:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.event.head_commit.message != 'V65: fix refusal penalty and preserve offers on exit'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,20 +20,19 @@ jobs:
           text = p.read_text(encoding='utf-8')
           old = 'return rand(100,120)'
           new = 'return rand(90,150)'
-          if old not in text:
-              raise SystemExit('Refusal penalty marker not found')
-          text = text.replace(old, new, 1)
+          if old in text:
+              text = text.replace(old, new, 1)
           old = 'const offers=generateOffers(f);'
           new = 'const existing=(f.organizationOffers||[]).filter(x=>num(x.expires,0)>=day()&&!x.resolved);const offers=existing.length?existing:generateOffers(f);'
-          if old not in text:
-              raise SystemExit('Matchmaking generation marker not found')
-          text = text.replace(old, new, 1)
+          if old in text:
+              text = text.replace(old, new, 1)
           p.write_text(text, encoding='utf-8')
           PY
       - name: Commit V65
         run: |
-          git config user.name '7p7d66g75h-bot'
-          git config user.email '7p7d66g75h@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add scripts/organization_v64.js
-          git commit -m 'V65: fix refusal penalty and preserve offers on exit' || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m 'V65: fix refusal penalty and preserve offers on exit'
           git push
