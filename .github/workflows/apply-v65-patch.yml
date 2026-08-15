@@ -15,14 +15,15 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           p = Path('scripts/organization_v64.js')
           text = p.read_text(encoding='utf-8')
-          text, n1 = re.subn(r"return 100,120", "return 90,150", text, count=1)
-          if n1 != 1:
+          old = 'return rand(100,120)'
+          new = 'return rand(90,150)'
+          if old not in text:
               raise SystemExit('Refusal penalty marker not found')
-          old = "const offers=generateOffers(f);"
-          new = "const existing=(f.organizationOffers||[]).filter(x=>num(x.expires,0)>=day()&&!x.resolved);const offers=existing.length?existing:generateOffers(f);"
+          text = text.replace(old, new, 1)
+          old = 'const offers=generateOffers(f);'
+          new = 'const existing=(f.organizationOffers||[]).filter(x=>num(x.expires,0)>=day()&&!x.resolved);const offers=existing.length?existing:generateOffers(f);'
           if old not in text:
               raise SystemExit('Matchmaking generation marker not found')
           text = text.replace(old, new, 1)
@@ -31,7 +32,7 @@ jobs:
       - name: Commit V65
         run: |
           git config user.name '7p7d66g75h-bot'
-          git config user.email '7p7d66g75h-bot@users.noreply.github.com'
+          git config user.email '7p7d66g75h@users.noreply.github.com'
           git add scripts/organization_v64.js
           git commit -m 'V65: fix refusal penalty and preserve offers on exit' || exit 0
           git push
