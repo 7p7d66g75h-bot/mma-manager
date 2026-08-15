@@ -49,9 +49,11 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           s=Path('index.html').read_text(encoding='utf-8')
-          js=s[s.index('<script>')+8:s.rindex('</script>')]
-          Path('/tmp/game.js').write_text(js,encoding='utf-8')
+          matches=re.findall(r'<script>(.*?)</script>',s,re.S)
+          if not matches: raise SystemExit('script block not found')
+          Path('/tmp/game.js').write_text(matches[-1],encoding='utf-8')
           PY
           node --check /tmp/game.js
       - name: Commit patch
