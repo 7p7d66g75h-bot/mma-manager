@@ -1,0 +1,40 @@
+name: Fix V67 live refusal system
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'V67 live refusal system applied')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply live patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          org=Path('scripts/organization_v64.js').read_text(encoding='utf-8')
+          assert 'function freePenalty(count)' in org
+          assert 'return Math.floor(90+Math.random()*61)' in org
+          assert 'f.refusalOfferBatchSize=offers.length' in org
+          assert 'const days=freePenalty(t)' in org
+          idx=Path('index.html')
+          s=idx.read_text(encoding='utf-8')
+          s=re.sub(r'<script src=["\']scripts/organization_v64\.js(?:\?[^"\']*)?["\']></script>', '<script src="scripts/organization_v64.js?v=67"></script>', s)
+          s=s.replace('MMA_MANAGER_V45_MATCHMAKING_RESTORED','MMA_MANAGER_V67_LIVE_REFUSAL_SYSTEM')
+          s=s.replace('MMA_MANAGER_V64_ORGANIZATION','MMA_MANAGER_V67_LIVE_REFUSAL_SYSTEM')
+          idx.write_text(s,encoding='utf-8')
+          print('V67 live patch validated and cache-busted')
+          PY
+      - name: Commit live patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'V67 live refusal system applied'
+          git pull --rebase origin main
+          git push origin HEAD
