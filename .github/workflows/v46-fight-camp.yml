@@ -15,33 +15,26 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          original=s
-          s=s.replace('const BUILD="MMA_MANAGER_V46";','const BUILD="MMA_MANAGER_V47";',1)
-          s=re.sub(r'<title>MMA Manager V\d+ • Road to Champion</title>','<title>MMA Manager V47 • Road to Champion</title>',s,count=1)
-          # HOME: no camp button here.
-          s=re.sub(r'<button[^>]*data-campfighter="\$\{x\.id\}"[^>]*>Лагерь</button>','',s)
-          # Default camp based on fighter archetype; saved preference overrides it.
-          if 'function defaultCampStyleForFighter(' not in s:
-            s=s.replace('function camp(){','function defaultCampStyleForFighter(f){const m={"Wrestler":"wrestling","Grappler":"grappling","Striker":"striking","Pressure Fighter":"conditioning","Counter Striker":"striking"};return m[f?.style]||"balanced";}\n\nfunction camp(){',1)
-          # Bout acceptance: initialize current camp from saved preference or automatic fighter style.
-          if 'f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);' not in s:
-            s=s.replace('f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;', 'f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;',1)
-          # PROFILE: show Camp only when a bout exists.
-          if 'data-profile-camp' not in s:
-            s=re.sub(r'(\$\{f\.nextFight\?`<button class="primary" data-profile-fight>Предматчевый экран</button>)',r'\1<button data-profile-camp>Лагерь</button>',s,count=1)
-          if 'let cb=document.querySelector("[data-profile-camp]")' not in s:
-            s=s.replace('let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};','let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};let cb=document.querySelector("[data-profile-camp]");if(cb)cb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);camp()};',1)
-          # Old saves: give them an automatic camp immediately.
-          s=re.sub(r'let selected=f\.campStyle\|\|null,c=CAMP_STYLES\.find\(x=>x\.id===selected\)\|\|null;', 'if(!f.campStyle)f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);let selected=f.campStyle,c=CAMP_STYLES.find(x=>x.id===selected)||CAMP_STYLES[0];save();', s,count=1)
-          # Changing camp stores a reusable preference for future fights.
-          s=re.sub(r'document\.querySelectorAll\("\[data-campstyle\]"\)\.forEach\(b=>b\.onclick=\(\)=>\{.*?\}\);document\.querySelector\("\[data-change-camp\]"\)\?\.addEventListener\("click",\(\)=>\{f\.campStyle=null;save\(\);camp\(\)\}\)', 'document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{f.campStyle=b.dataset.campstyle;f.preferredCampStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()})', s,count=1,flags=re.S)
-          # Weekly camp modifies combat attributes (existing behavior) and now also creates a fight-day form edge.
-          s=s.replace('function applyCampWeek(f){ let c=CAMP_STYLES.find(x=>x.id===(f.campStyle||"balanced"))||CAMP_STYLES[0];','function applyCampWeek(f){ let c=CAMP_STYLES.find(x=>x.id===(f.campStyle||f.preferredCampStyle||defaultCampStyleForFighter(f)))||CAMP_STYLES[0];',1)
-          s=s.replace('f.fatigue=clamp(f.fatigue+c.fatigue);f.form=clamp(100-f.fatigue*.6+(f.morale-70)*.2);s.trainingPoints=7;','f.fatigue=clamp(f.fatigue+c.fatigue);let campFormBonus=c.id==="peak"?8:c.id==="conditioning"?5:c.id==="striking"||c.id==="wrestling"||c.id==="grappling"?3:1;f.form=clamp(100-f.fatigue*.6+(f.morale-70)*.2+campFormBonus);f.campPerformance=campFormBonus;s.trainingPoints=7;',1)
-          # Preserve preference after fight; clear only the current camp performance.
-          s=s.replace('f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;','f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=f.preferredCampStyle||null;f.campPerformance=0;',1)
+          p=Path('index.html');s=p.read_text(encoding='utf-8');original=s
+          s=s.replace('const BUILD="MMA_MANAGER_V47";','const BUILD="MMA_MANAGER_V48";',1)
+          s=re.sub(r'<title>MMA Manager V\d+ • Road to Champion</title>','<title>MMA Manager V48 • Road to Champion</title>',s,count=1)
+          # Camp preference is initialized on bout acceptance.
+          target='f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;'
+          if target in s and 'f.campPerformance=' not in s[s.find(target):s.find(target)+500]:
+            repl='f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campPerformance=f.campStyle==="peak"?8:(f.campStyle==="conditioning"?5:3);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;'
+            s=s.replace(target,repl,1)
+          # The simulation already calculates a live fight edge from form; add the camp's explicit fight-day edge.
+          old='let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500;'
+          new='let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500+(f.campPerformance||0)/100;'
+          s=s.replace(old,new,1)
+          # A grappling/wrestling camp should also improve the existing takedown edge.
+          old='let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;'
+          new='let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180+(f.campStyle==="wrestling"?0.035:f.campStyle==="grappling"?0.025:0);'
+          s=s.replace(old,new,1)
+          # Keep camp preference after fight; only the current camp-performance edge is cleared.
+          old='f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=f.preferredCampStyle||null;f.campPerformance=0;'
+          new='f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=f.preferredCampStyle||null;f.campPerformance=0;'
+          s=s.replace(old,new,1)
           if s==original: raise SystemExit('no changes made')
           p.write_text(s,encoding='utf-8')
           PY
@@ -61,6 +54,6 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add index.html
-          git commit -m 'V47: move camp to fighter profile and make camp affect preparation [skip v47]'
+          git commit -m 'V48: make camp affect fight simulation [skip v48]'
           git pull --rebase origin main
           git push origin HEAD:main
