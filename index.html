@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V60_STABLE_FIX";
+  const BUILD="MMA_MANAGER_V61_STABLE_FIX";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V60 • Road to Champion</title>
+<title>MMA Manager V61 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1913,59 +1913,73 @@ window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 </script>
 
 
-<script id="MMA_MANAGER_V60_FIX">
+
+<script id="MMA_MANAGER_V61_FIX">
 (function(){'use strict';
-  function current60(){return typeof currentF==='function'?currentF():null}
-  function addHistory60(f,status,reason,extra){
-    if(!f)return;
-    f.contractHistory=Array.isArray(f.contractHistory)?f.contractHistory:[];
-    f.contractHistory.unshift(Object.assign({org:f.contract?.org||f.formerContractOrg||'—',status,reason,day:s.day,date:dateLabel(s.day)},extra||{}));
-    f.contractHistory=f.contractHistory.slice(0,50);
+  // V61: matchmaking must never depend on the animated loader or a deferred frame.
+  // The previous flow could leave "Подбираем соперника…" visible when the callback
+  // chain was interrupted. We now run matchmaking synchronously and always clean UI.
+  function hideLoader(){
+    document.querySelectorAll('#speedLoader').forEach(e=>{e.classList.remove('show');e.style.display='none'});
   }
-  function terminate60(f){
-    if(!f?.contract){toast('У бойца нет действующего контракта');return}
-    const org=f.contract.org,left=f.contract.fightsLeft??f.contract.length??0;
-    const ov=document.createElement('div');ov.className='v52-contract-overlay';ov.id='v60TerminateOverlay';
-    ov.innerHTML=`<div class="v52-contract-card"><div style="font-size:46px;text-align:center">⚠️</div><div class="eyebrow" style="text-align:center">РАСТОРЖЕНИЕ КОНТРАКТА</div><div class="v51-warning-title">Расторгнуть контракт?</div><div class="v51-warning-sub">${f.name} • ${org} • осталось ${left} боёв.</div><div class="sheet-actions" style="position:static;margin-top:18px"><button id="v60TermBack">Отмена</button><button id="v60TermYes" class="red">Да, расторгнуть</button></div></div>`;
-    document.body.appendChild(ov);
-    ov.querySelector('#v60TermBack').onclick=()=>ov.remove();
-    ov.querySelector('#v60TermYes').onclick=()=>{addHistory60(f,'left','Контракт расторгнут менеджером',{fightsLeft:left});f.formerContractOrg=org;f.formerContractReason='Контракт расторгнут менеджером';f.contract=null;f.leagueOffers=[];f.currentFightLeague=null;save();ov.remove();profile(f,'roster');toast(`${f.name}: контракт с ${org} расторгнут`)};
+  function showLoader(){
+    const nodes=document.querySelectorAll('#speedLoader');
+    nodes.forEach(e=>{e.classList.remove('show');e.style.display='none'});
+    const e=nodes[0];
+    if(e){e.querySelector('span')?.replaceChildren(document.createTextNode('Подбираем соперника…'));e.classList.add('show');e.style.display='flex'}
   }
-  document.addEventListener('click',function(e){
-    const term=e.target.closest?.('[data-terminate-contract]');
-    if(term){e.preventDefault();e.stopImmediatePropagation();terminate60(current60());return}
-    const change=e.target.closest?.('[data-change-camp]');
-    if(change){e.preventDefault();e.stopImmediatePropagation();const f=current60();if(!f)return;f.campChanging=true;f.campStyle=null;save();camp();return}
-    const style=e.target.closest?.('[data-campstyle]');
-    if(style){e.preventDefault();e.stopImmediatePropagation();const f=current60();if(!f)return;f.campStyle=style.dataset.campstyle;f.preferredCampStyle=style.dataset.campstyle;f.campChanging=false;save();camp();return}
-  },true);
-
-  // The profile/roster "Организовать бой" action must open matchmaking directly,
-  // not navigate to the news/events screen.
-  document.addEventListener('click',function(e){
-    const b=e.target.closest?.('[data-fighter-match]');
-    if(b){
-      e.preventDefault();e.stopImmediatePropagation();
-      const f=s.fighters[Number(b.dataset.fighterMatch)];
-      if(!f){toast('Боец не найден');return}
-      s.selected=s.fighters.findIndex(x=>x.id===f.id);
-      save();
-      matchmake();
-      return;
+  function directMatchmake(){
+    const f=typeof currentF==='function'?currentF():null;
+    if(!f){toast('Выбери бойца');return}
+    if(!f.agencyManaged){
+      // Legacy saves may have roster fighters without the agency flag.
+      if((s.fighters||[]).some(x=>x.id===f.id))f.agencyManaged=true;
+      else {toast('Сначала подпиши бойца в своё агентство');return}
     }
-  },true);
-
-  // If the management sheet uses the existing button, make that button direct too.
-  const oldManage=window.manageFighter;
-  if(typeof oldManage==='function' && !oldManage.__v60Wrapped){
-    window.manageFighter=oldManage;
-    window.manageFighter.__v60Wrapped=true;
+    if(f.nextFight){toast('У бойца уже есть назначенный бой');return}
+    showLoader();
+    try{
+      if(typeof _matchmakeHeavy!=='function')throw new Error('matchmaking function missing');
+      _matchmakeHeavy();
+    }catch(err){
+      console.error('V61 matchmaking error',err);
+      // Guaranteed fallback: find one same-weight world fighter without expensive indexing.
+      try{
+        const recent=new Set((f.history||[]).slice(0,5).map(h=>h.opponent).filter(Boolean));
+        const pool=(s.world||[]).filter(x=>x&&x.id!==f.id&&!x.agencyManaged&&!x.retired&&!x.injury&&!x.nextFight&&x.weight===f.weight&&!recent.has(x.name));
+        pool.sort((a,b)=>Math.abs(ovr(a)-ovr(f))-Math.abs(ovr(b)-ovr(f)));
+        const o=pool[0];
+        if(!o)throw err;
+        const org=f.contract?.org||o.org||'ACA';
+        const terms=typeof contractTerms==='function'?contractTerms(f,ORGS.find(x=>x.name===org)||ORGS.find(x=>x.name==='ACA')):{purse:5000};
+        const candidate={opponent:o,org,event:'Fight Night #'+rand(10,99),rounds:3,date:s.day+14,purse:Math.max(500,terms.purse||5000),rank:getPos(o),ranked:false,type:'ОБЫЧНЫЙ БОЙ',titleFight:false};
+        hideLoader();
+        document.getElementById('modal').classList.add('open');
+        document.getElementById('sheet').innerHTML=`<div class="eyebrow">МАТЧМЕЙКИНГ</div><div class="title">${f.name} vs ${o.name}</div><div class="muted">${candidate.org} • ${dateLabel(candidate.date)} • 3 раунда</div><section class="panel"><div class="row"><span>Соперник</span><b>${o.name}</b></div><div class="row"><span>Рекорд</span><b>${rec(o)}</b></div><div class="row"><span>Гонорар</span><b>$${candidate.purse.toLocaleString('ru-RU')}</b></div></section><div class="sheet-actions"><button data-v61-close>Закрыть</button><button class="primary" data-v61-accept>Предложить бой</button></div>`;
+        document.querySelector('[data-v61-close]').onclick=closeModal;
+        document.querySelector('[data-v61-accept]').onclick=()=>{f.nextFight={opponent:{...o},org:candidate.org,event:candidate.event,rounds:3,date:candidate.date,purse:candidate.purse,rank:candidate.rank,ranked:false,type:candidate.type,titleFight:false,venue:'Арена',card:'MAIN CARD',oneFight:!f.contract};f.currentFightLeague=candidate.org;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campWeek=1;f.campSchedule={};save();closeModal();page('home');toast('Бой согласован')};
+        return;
+      }catch(fallbackErr){
+        toast('Не удалось подобрать соперника');
+        console.error('V61 fallback matchmaking error',fallbackErr);
+      }
+    }finally{
+      hideLoader();
+    }
   }
-
-  const st=document.createElement('style');
-  st.textContent='.contract-terminate{display:block!important;width:100%;margin-top:9px}.v52-history{cursor:pointer}';
-  document.head.appendChild(st);
-  window.MMA_MANAGER_V60_FIX=true;
+  // Override the entry point used by every existing matchmaking button.
+  window.matchmake=directMatchmake;
+  document.addEventListener('click',function(e){
+    const b=e.target.closest?.('[data-fighter-match],[data-profile-match],[data-fighter-fight]');
+    if(!b)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    if(b.dataset.fighterMatch!=null){
+      const f=s.fighters[Number(b.dataset.fighterMatch)];
+      if(f)s.selected=s.fighters.findIndex(x=>x.id===f.id);
+    }
+    directMatchmake();
+  },true);
+  window.MMA_MANAGER_V61_FIX=true;
 })();
 </script>
 
