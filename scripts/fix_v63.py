@@ -64,7 +64,6 @@ patch=r'''<script id="MMA_MANAGER_V63_FIX">
       if(h.result==='W'&&h.method==='KO/TKO')x.ko++;
       if(h.result==='W'&&h.method==='Submission')x.sub++;
     }
-    // Current contract with no fight yet is still shown, but has no record.
     const co=f.contract?.org;
     if(co&&!map[co])map[co]={w:0,l:0,d:0,ko:0,sub:0,fights:0};
     return map;
@@ -90,7 +89,6 @@ patch=r'''<script id="MMA_MANAGER_V63_FIX">
   }
   document.addEventListener('click',historyButtonHandler,true);
 
-  // Make the existing history panel visually behave as a button.
   const st=document.createElement('style');st.textContent=`
     .v63-org-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #2b3138}
     .v63-org-row:last-child{border-bottom:0}.v63-org-row small{display:block;color:#8e98a4;font-size:10px;margin-top:3px}.v63-org-row strong{color:#d5ae42;font-size:17px;white-space:nowrap}
@@ -104,5 +102,9 @@ s=s.replace('</body>',patch+'\n</body>',1)
 s=s.replace('MMA_MANAGER_V61_RESTORED','MMA_MANAGER_V63_RESTORED')
 s=s.replace('MMA_MANAGER_V61_FIX','MMA_MANAGER_V63_FIX')
 s=s.replace('<title>MMA Manager V61 • Road to Champion</title>','<title>MMA Manager V63 • Road to Champion</title>')
+# Keep the V64 organization system isolated: it is loaded after the stable V63 layer.
+loader='<script src="scripts/organization_v64.js"></script>\n'
+if loader not in s:
+    s=s.replace('</body>',loader+'</body>',1)
 p.write_text(s,encoding='utf-8')
 print('V63 patched')
