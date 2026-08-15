@@ -1,0 +1,73 @@
+name: V43 dynamic fight offers
+on:
+  push:
+    paths:
+      - '.github/workflows/v43-fight-offer-volume.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch dynamic offer count
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          old=''' let candidates=[];
+ rows.sort(()=>Math.random()-.5).forEach(r=>{
+   if(candidates.length>=2)return;
+   if(!candidates.some(x=>x.org===r.org))candidates.push(r);
+ });'''
+          new=''' let candidates=[];
+ // Number of offers depends on the fighter's actual status in the world.
+ // Ordinary fighters can receive no offers at all; elite contenders/champions
+ // can receive several offers from different promotions.
+ let fpNow=getPos(f), ratingNow=ovr(f), maxOffers=2;
+ let roll=Math.random();
+ if(f.title || (fpNow>0&&fpNow<=3) || ratingNow>=88){
+   maxOffers=roll<.10?0:roll<.35?2:roll<.70?3:4;
+ }else if((fpNow>0&&fpNow<=10) || ratingNow>=82){
+   maxOffers=roll<.20?0:roll<.65?1:roll<.95?2:3;
+ }else if((fpNow>0&&fpNow<=25) || ratingNow>=76){
+   maxOffers=roll<.35?0:roll<.80?1:2;
+ }else{
+   maxOffers=roll<.45?0:roll<.90?1:2;
+ }
+ rows.sort(()=>Math.random()-.5).forEach(r=>{
+   if(candidates.length>=maxOffers)return;
+   if(!candidates.some(x=>x.org===r.org))candidates.push(r);
+ });'''
+          if old not in s: raise SystemExit('candidate selection block not found')
+          s=s.replace(old,new,1)
+
+          old=''' let candidates=[];
+ // Number of offers depends on the fighter's actual status in the world.'''
+          # The replacement above intentionally leaves the normal no-offer path intact.
+
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Validate JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<script>(.*?)</script>',s,re.S)
+          if not m: raise SystemExit('script block not found')
+          Path('/tmp/game.js').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'V43: dynamic number of fight offers [skip ci]'
+          git push
