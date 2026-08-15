@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V47";
+  const BUILD="MMA_MANAGER_V48";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V47 • Road to Champion</title>
+<title>MMA Manager V48 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1262,7 +1262,7 @@ function _matchmakeHeavy(){
      let chance=Math.round(Math.max(15,Math.min(98,82-Math.max(0,purse-c.purse)/Math.max(1,c.purse)*70)));
      if(Math.random()*100>chance){toast("Лига отказалась от условий");return}
      f.fightResolved=false;f.nextFight={opponent:{...c.opponent},org:c.org,event:c.event,rounds:c.rounds,date:c.date,purse,rank:c.rank,ranked:!!c.ranked,type:c.type,titleFight:!!c.titleFight,venue:choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Las Vegas","New York","Riyadh Arena"]),card:c.rounds===5?"MAIN EVENT":choice(["PRELIMS","MAIN CARD","CO-MAIN EVENT"]),oneFight:!contracted};
-     f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;
+     f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campPerformance=f.campStyle==="peak"?8:(f.campStyle==="conditioning"?5:3);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;
      logNews(`${f.name} принял бой в ${c.org} против ${c.opponent.name}.`);save();closeModal();page("home");toast(`Бой согласован: ${c.org}`);
    };
  });
@@ -1394,13 +1394,13 @@ function simulateFight(f,n){
    return label;
  }
  function event(){
-   let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500;
+   let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500+(f.campPerformance||0)/100;
    let t=Math.random();
    if(t<.62){
      if(Math.random()+edge*.35>.5){a.strikes=(a.strikes||0)+1;let label=hit(a,b,f);setLive(`${f.name} точно попадает ${label}`)}
      else{b.strikes=(b.strikes||0)+1;let label=hit(b,a,o);setLive(`${o.name} отвечает ${label}`)}
    }else if(t<.76){
-     let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;
+     let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180+(f.campStyle==="wrestling"?0.035:f.campStyle==="grappling"?0.025:0);
      if(a.td<3&&Math.random()+tdEdge>.62){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}
      else if(b.td<3&&Math.random()-tdEdge>.58){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}
      else setLive("Клинч у сетки — борьба за позицию")
