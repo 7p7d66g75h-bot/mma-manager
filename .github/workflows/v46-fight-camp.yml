@@ -1,4 +1,4 @@
-name: V47 fight camp
+name: V49 camp and matchmaking
 on:
   push:
     branches: [main]
@@ -15,26 +15,42 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p=Path('index.html');s=p.read_text(encoding='utf-8');original=s
-          s=s.replace('const BUILD="MMA_MANAGER_V47";','const BUILD="MMA_MANAGER_V48";',1)
-          s=re.sub(r'<title>MMA Manager V\d+ • Road to Champion</title>','<title>MMA Manager V48 • Road to Champion</title>',s,count=1)
-          # Camp preference is initialized on bout acceptance.
-          target='f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;'
-          if target in s and 'f.campPerformance=' not in s[s.find(target):s.find(target)+500]:
-            repl='f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campPerformance=f.campStyle==="peak"?8:(f.campStyle==="conditioning"?5:3);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;'
-            s=s.replace(target,repl,1)
-          # The simulation already calculates a live fight edge from form; add the camp's explicit fight-day edge.
-          old='let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500;'
-          new='let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500+(f.campPerformance||0)/100;'
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          original=s
+          s=re.sub(r'const BUILD="MMA_MANAGER_V\d+";','const BUILD="MMA_MANAGER_V49";',s,count=1)
+          s=re.sub(r'<title>MMA Manager V\d+ • Road to Champion</title>','<title>MMA Manager V49 • Road to Champion</title>',s,count=1)
+
+          # CAMP: the change button must open the list instead of immediately restoring the default camp.
+          old='if(!f.campStyle)f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);let selected=f.campStyle,c=CAMP_STYLES.find(x=>x.id===selected)||CAMP_STYLES[0];save();'
+          new='if(!f.campStyle&&!f.campChanging)f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);let selected=f.campStyle,c=CAMP_STYLES.find(x=>x.id===selected)||null;if(c&&!f.campChanging)save();'
+          if old not in s: raise SystemExit('camp selection target not found')
           s=s.replace(old,new,1)
-          # A grappling/wrestling camp should also improve the existing takedown edge.
-          old='let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;'
-          new='let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180+(f.campStyle==="wrestling"?0.035:f.campStyle==="grappling"?0.025:0);'
+          old='document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{f.campStyle=b.dataset.campstyle;f.preferredCampStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()});bind()'
+          new='document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{f.campStyle=b.dataset.campstyle;f.preferredCampStyle=b.dataset.campstyle;f.campChanging=false;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;f.campChanging=true;save();camp()});bind()'
+          if old not in s: raise SystemExit('camp button binding target not found')
           s=s.replace(old,new,1)
-          # Keep camp preference after fight; only the current camp-performance edge is cleared.
-          old='f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=f.preferredCampStyle||null;f.campPerformance=0;'
-          new='f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=f.preferredCampStyle||null;f.campPerformance=0;'
+
+          # LEAGUE OFFERS: variable number (usually 1-2, sometimes 3), and avoid repeatedly offering the same leagues.
+          old='let count=Math.random()<.62?1:(Math.random()<.86?2:3);\n   let selected=all.sort((x,y)=>Math.abs(x.level-rating/10)-Math.abs(y.level-rating/10)).slice(0,count);\n   offers=selected.map(o=>{let t=contractTerms(f,o);return {org:o.name,short:o.short,level:o.level,fights:choice([3,3,4]),salary:Math.max(t.salary,Math.round(t.salary*(.85+Math.random()*.25)))};});'
+          new='let count=Math.random()<.48?1:(Math.random()<.82?2:3);\n   let recentOfferOrgs=new Set((f.leagueOfferHistory||[]).filter(x=>s.day-(x.day||0)<120).map(x=>x.org));\n   let ranked=all.slice().sort((a,b)=>Math.abs(a.level-rating/10)-Math.abs(b.level-rating/10));\n   let fresh=ranked.filter(o=>!recentOfferOrgs.has(o.name));\n   let pool=fresh.length>=count?fresh:fresh.concat(ranked.filter(o=>!fresh.includes(o)));\n   pool=pool.sort(()=>Math.random()-.5);\n   let selected=pool.slice(0,Math.min(count,pool.length));\n   offers=selected.map(o=>{let t=contractTerms(f,o);return {org:o.name,short:o.short,level:o.level,fights:choice([3,3,4]),salary:Math.max(t.salary,Math.round(t.salary*(.85+Math.random()*.25)))};});\n   f.leagueOfferHistory=[...(f.leagueOfferHistory||[]),...selected.map(o=>({org:o.name,day:s.day}))].slice(-12);'
+          if old not in s: raise SystemExit('league offer target not found')
           s=s.replace(old,new,1)
+
+          # MATCHMAKING: remember recently offered opponents so advancing time / reopening matchmaking does not recycle the same names.
+          old='let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));\n let matchIndex=new Map();'
+          new='let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));\n let recentOfferedOpponents=new Set((f.matchmakeSeen||[]).filter(x=>s.day-(x.day||0)<60).map(x=>x.name));\n let matchIndex=new Map();'
+          if old not in s: raise SystemExit('matchmaking history target not found')
+          s=s.replace(old,new,1)
+          old='if(!x||x.agencyManaged||x.name===f.name||x.weight!==f.weight||recentOpponents.has(x.name))continue;'
+          new='if(!x||x.agencyManaged||x.name===f.name||x.weight!==f.weight||recentOpponents.has(x.name)||recentOfferedOpponents.has(x.name))continue;'
+          if old not in s: raise SystemExit('matchmaking filter target not found')
+          s=s.replace(old,new,1)
+          old='if(!candidates.length){toast(contracted?`В ${f.contract.org} сейчас нет подходящего соперника.`:"Сейчас нет подходящих предложений. Попробуй позже.");return}\n document.getElementById("modal").classList.add("open");'
+          new='if(!candidates.length){toast(contracted?`В ${f.contract.org} сейчас нет подходящего соперника.`:"Сейчас нет подходящих предложений. Попробуй позже.");return}\n f.matchmakeSeen=[...(f.matchmakeSeen||[]),...candidates.map(c=>({name:c.opponent.name,day:s.day}))].slice(-20);\n save();\n document.getElementById("modal").classList.add("open");'
+          if old not in s: raise SystemExit('matchmaking save target not found')
+          s=s.replace(old,new,1)
+
           if s==original: raise SystemExit('no changes made')
           p.write_text(s,encoding='utf-8')
           PY
@@ -54,6 +70,6 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add index.html
-          git commit -m 'V48: make camp affect fight simulation [skip v48]'
+          git commit -m 'V49: fix camp switching and diversify league offers and opponents [skip v49]'
           git pull --rebase origin main
           git push origin HEAD:main
