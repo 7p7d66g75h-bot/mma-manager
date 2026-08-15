@@ -1,0 +1,64 @@
+name: V40 Data repair
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[skip v40]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair save migration and ranking invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          anchor='s.fighters=s.fighters||[];s.world=s.world||[];s.news=s.news||[];'
+          insert='''s.fighters=s.fighters||[];s.world=s.world||[];s.news=s.news||[];
+          // V40 migration: any fighter already signed to the manager but stranded in the world pool is moved into the roster.
+          const managed=new Set(s.fighters.map(f=>f&&f.id).filter(Boolean));
+          const stranded=[];
+          s.world=s.world.filter(f=>{
+            if(!f||!f.id)return true;
+            if(f.agencyManaged){ if(!managed.has(f.id)){stranded.push(f);managed.add(f.id)} return false; }
+            return true;
+          });
+          for(const f of stranded){ if(s.fighters.length<12) s.fighters.push(f); else s.world.push(f); }
+          // Remove duplicate fighter IDs from the manager roster itself.
+          const rosterSeen=new Set();
+          s.fighters=s.fighters.filter(f=>{if(!f||f.id==null)return false;if(rosterSeen.has(f.id))return false;rosterSeen.add(f.id);return true;});'''
+          if anchor not in s: raise SystemExit('NORMALIZE_ANCHOR_NOT_FOUND')
+          s=s.replace(anchor,insert,1)
+
+          # Make the ranking pool unique and keep a champion out of that promotion's numbered ranking.
+          old='let seenRankIds=new Set();let pool=[...s.world,...s.fighters].filter(f=>{if(!f||f.id==null||seenRankIds.has(f.id))return false;seenRankIds.add(f.id);return true});'
+          new='const rosterIds=new Set((s.fighters||[]).map(f=>f&&f.id).filter(Boolean));s.world=(s.world||[]).filter(f=>!f||!rosterIds.has(f.id));let seenRankIds=new Set();let pool=[...s.world,...s.fighters].filter(f=>{if(!f||f.id==null||seenRankIds.has(f.id))return false;seenRankIds.add(f.id);return true});'
+          if old not in s: raise SystemExit('RANK_POOL_NOT_FOUND')
+          s=s.replace(old,new,1)
+
+          # Defensive cleanup: numbered rankings can never contain the title holder.
+          old='let championId=s.titles?.[o.name]?.[w];let arr=members.filter(f=>f.weight===w&&f.id!==championId).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));'
+          new='let championId=s.titles?.[o.name]?.[w];let arr=members.filter(f=>f.weight===w&&f.id!==championId).filter((f,i,a)=>a.findIndex(x=>x.id===f.id)===i).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));'
+          if old not in s: raise SystemExit('CHAMPION_RANK_NOT_FOUND')
+          s=s.replace(old,new,1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          js=s.rsplit('<script>',1)[1].split('</script>',1)[0]
+          Path('/tmp/game.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'V40: migrate stranded signed fighters and enforce ranking invariants [skip v40]'
+          git push
