@@ -1,19 +1,16 @@
 name: Apply V65 matchmaking patch
 
-on:
-  push:
-    paths:
-      - 'scripts/organization_v65_patch.js'
+on: push
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.event.head_commit.message != 'V65: fix refusal penalty and preserve offers on exit'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Apply minimal V65 changes
         run: |
           python3 - <<'PY'
@@ -31,7 +28,6 @@ jobs:
           text = text.replace(old, new, 1)
           p.write_text(text, encoding='utf-8')
           PY
-
       - name: Commit V65
         run: |
           git config user.name '7p7d66g75h-bot'
