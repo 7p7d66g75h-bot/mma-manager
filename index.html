@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V44";
+  const BUILD="MMA_MANAGER_V45";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V44 • Road to Champion</title>
+<title>MMA Manager V45 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -172,7 +172,7 @@ button:active{transform:none}button.primary{background:linear-gradient(90deg,#d7
 @keyframes frBoom{0%{transform:scale(.55);opacity:.1;filter:blur(8px)}60%{transform:scale(1.08);opacity:1;filter:blur(0)}100%{transform:scale(1)}}
 @keyframes frWinner{0%{transform:scale(.65);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
 @media(max-width:520px){.fr-actions{grid-template-columns:1fr}.fight-result-card{padding:24px 14px 16px}}
-</style><style id="fight-controls-v23">
+</style><style id="v45-speed-ui">#speedLoader{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 12px);z-index:2147483646;display:none;align-items:center;gap:7px;padding:7px 10px;border:1px solid #343b45;border-radius:9px;background:rgba(12,16,21,.94);box-shadow:0 8px 25px #000;color:#cbd1d8;font-size:10px;font-weight:800;backdrop-filter:blur(8px)}#speedLoader.show{display:flex}#speedLoader i{width:12px;height:12px;border:2px solid #3a414b;border-top-color:#d5ae42;border-radius:50%;animation:v45spin .7s linear infinite}@keyframes v45spin{to{transform:rotate(360deg)}}.speed-placeholder{padding:22px;text-align:center;color:#8e98a4;font-size:12px}</style><style id="fight-controls-v23">
 .fight-controls{position:static!important;bottom:auto!important;top:auto!important;z-index:10!important}
 .fight-controls #nextRoundBtn{display:none}
 .fight-controls #nextRoundBtn[style*="display: flex"]{display:flex}
@@ -211,7 +211,7 @@ html[data-build="MMA_MANAGER_V31"]::before{
 <button data-page="more"><b>☷</b>Ещё</button>
 </nav>
 <div id="modal" class="modal"><div id="sheet" class="sheet"></div></div>
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast"></div><div id="speedLoader"><i></i><span>Подготавливаем бой…</span></div>
 <script>
 const BUILD_RESET_V19=true;
 try{
@@ -540,7 +540,7 @@ function updateRankings(){
  s.p4p=s.globalTop300.slice(0,15);
 }
 function ensureNoLoop(){/* intentionally empty */}
-function getPos(f){updateRankings();let a=s.rankings[f.weight]||[];let x=a.find(z=>z.id===f.id);return x?x.rank:"—"}
+function getPos(f){let a=s.rankings[f.weight]||[];let x=a.find(z=>z.id===f.id);return x?x.rank:"—"}
 
 
 function managerProfile(){
@@ -731,13 +731,13 @@ function render(){
     return;
   }
   document.getElementById("nav").style.display="grid";
-  if(!s._normalized){ normalizeSave(); s._normalized=true; }
+  if(!s._normalized){ s._normalized=true; setTimeout(()=>{try{normalizeSave();save();}catch(e){console.error("Deferred normalization failed",e)}},0); }
   const targetPage=window._page||"home";
   ({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[targetPage]||home)();
   document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===targetPage));
   if(!s.worldPrepared || (s.world||[]).length<3200){
     clearTimeout(window._worldBuildTimer);
-    window._worldBuildTimer=setTimeout(()=>{
+    _showSpeedLoader("Загружаем мир MMA…"); window._worldBuildTimer=setTimeout(()=>{
       try{
         ensureWorld();
         s._normalized=true;
@@ -746,8 +746,10 @@ function render(){
       }catch(e){
         console.error("World build failed",e);
         toast("Мир ещё загружается");
+      }finally{
+        _hideSpeedLoader();
       }
-    },1200);
+    },50);
   }
 }
 function setup(){
@@ -1196,7 +1198,7 @@ function profile(f,back="roster"){
  let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};
 }
 function rosterProfile(i){s.selected=i;profile(s.fighters[i],"roster")}
-function matchmake(){
+function _matchmakeHeavy(){
  let f=currentF();
  if(!f){toast("Выбери бойца");return}
  if(!f.agencyManaged){toast("Сначала подпиши бойца в своё агентство");return}
@@ -1275,6 +1277,10 @@ const CAMP_STYLES=[
 {id:"conditioning",name:"Физический",icon:"🏃",desc:"Кардио, сила и восстановление.",bonus:"Кардио +4 • Сила +2",penalty:"Техника +0",fatigue:3},
 {id:"peak",name:"Пиковый",icon:"🔥",desc:"Короткий жёсткий лагерь перед главным боем.",bonus:"Форма +8 • все боевые навыки +1",penalty:"Высокий риск усталости",fatigue:7}
 ];
+function _showSpeedLoader(text="Подготавливаем бой…"){const e=document.getElementById("speedLoader");if(!e)return;e.querySelector("span").textContent=text;e.classList.add("show")}
+function _hideSpeedLoader(){document.getElementById("speedLoader")?.classList.remove("show")}
+function matchmake(){const f=currentF();if(!f){toast("Выбери бойца");return}_showSpeedLoader("Подбираем соперника…");requestAnimationFrame(()=>setTimeout(()=>{try{_matchmakeHeavy()}finally{_hideSpeedLoader()}},0))}
+
 function camp(){
 let f=currentF();if(!f)return;if(f.injury){toast(`Боец недоступен: ${f.injury.name}, ${f.injury.weeks} нед.`);return}
 if(!f.nextFight){document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">FIGHT CAMP</div><div class="title">Лагерь закрыт</div><div class="muted">Тренировки доступны только после назначения боя.</div><div class="actions one"><button class="primary" data-act="match">Найти бой</button></div></section>`;bind();return}
