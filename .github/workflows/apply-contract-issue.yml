@@ -1,0 +1,41 @@
+name: Apply V1 fight contract from issue
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+  issues: write
+jobs:
+  patch:
+    if: startsWith(github.event.issue.title, 'APPLY-CONTRACT-V1')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch and validate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          script=Path('scripts/fight_contract_v1.js').read_text(encoding='utf-8')
+          assert 'MMA_MANAGER_V1_FIGHT_CONTRACT' in script
+          assert 'data-contract-sign' in script
+          idx=Path('index.html')
+          s=idx.read_text(encoding='utf-8')
+          tag='<script src="scripts/fight_contract_v1.js?v=1"></script>'
+          if tag not in s:
+              assert '</body>' in s
+              s=s.replace('</body>',tag+'\n</body>',1)
+              idx.write_text(s,encoding='utf-8')
+          print('LIVE CONTRACT V1 VALIDATION OK')
+          PY
+      - name: Commit live contract
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'V1 fight contract applied'
+          git push origin HEAD
+      - name: Close trigger issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue close ${{ github.event.issue.number }} --comment 'V1 fight contract deployed and validated.'
