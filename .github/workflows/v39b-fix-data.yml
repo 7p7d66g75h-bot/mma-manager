@@ -1,0 +1,50 @@
+name: V39b Fix roster and rankings data
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[skip v39b]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old='document.querySelector("[data-agency-confirm]").onclick=()=>{let term=+termEl.value,c=agencyContractCost(f,term);if(s.money<c.signing){toast(`Нужно $${c.signing.toLocaleString("ru-RU")}`);return}s.money-=c.signing;f.agencyContract={length:term,fightsLeft:term,fee:c.signing,renewalFee:c.renewal,started:s.day};f.agencyManaged=true;f.agencySince=f.agencySince||s.day;save();closeModal();page("roster");toast(`${f.name}: контракт на ${term} ${term===1?"бой":"боя"} подписан`)}'
+          new='document.querySelector("[data-agency-confirm]").onclick=()=>{let term=+termEl.value,c=agencyContractCost(f,term);signFighter(f,c)}'
+          if old not in s: raise SystemExit('SIGN_CONFIRM_NOT_FOUND')
+          s=s.replace(old,new,1)
+          old='let pool=[...s.world,...s.fighters];'
+          new='const managedIds=new Set((s.fighters||[]).map(f=>f&&f.id).filter(Boolean));\n s.world=(s.world||[]).filter(f=>!f||!managedIds.has(f.id));\n let pool=Array.from(new Map([...s.world,...s.fighters].filter(f=>f&&f.id!=null).map(f=>[f.id,f])).values());'
+          if old not in s: raise SystemExit('POOL_NOT_FOUND')
+          s=s.replace(old,new,1)
+          old='let members=pool.filter(f=>f.org===o.name);'
+          new='let members=pool.filter(f=>{const h=titleHolder(o.name,f.weight);return f.org===o.name && (!h || h.id!==f.id)});'
+          if old not in s: raise SystemExit('MEMBERS_NOT_FOUND')
+          s=s.replace(old,new,1)
+          old='s.rankingsByOrg[o.name][w]=arr.map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));'
+          new='s.rankingsByOrg[o.name][w]=arr.filter((f,i,a)=>a.findIndex(x=>x.id===f.id)===i).map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));'
+          if old not in s: raise SystemExit('RANK_MAP_NOT_FOUND')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          js=s.rsplit('<script>',1)[1].split('</script>',1)[0]
+          Path('/tmp/game.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'V39b: fix roster and separate champion from rankings [skip v39b]'
+          git push
