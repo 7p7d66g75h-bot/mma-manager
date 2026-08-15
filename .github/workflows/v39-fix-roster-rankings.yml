@@ -1,0 +1,59 @@
+name: V39 Fix roster and rankings
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: "!contains(github.event.head_commit.message, '[skip v39]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch game logic
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # 1) Signing an agency contract must use the real signFighter() path.
+          old='document.querySelector("[data-agency-confirm]").onclick=()=>{let term=+termEl.value,c=agencyContractCost(f,term);if(s.money<c.signing){toast(`Нужно $${c.signing.toLocaleString("ru-RU")}`);return}s.money-=c.signing;f.agencyContract={length:term,fightsLeft:term,fee:c.signing,renewalFee:c.renewal,started:s.day};f.agencyManaged=true;f.agencySince=f.agencySince||s.day;save();closeModal();page("roster");toast(`${f.name}: контракт на ${term} ${term===1?"бой":"боя"} подписан`)}'
+          new='document.querySelector("[data-agency-confirm]").onclick=()=>{let term=+termEl.value,c=agencyContractCost(f,term);signFighter(f,c)}'
+          if old not in s:
+              raise SystemExit('agency confirm pattern not found')
+          s=s.replace(old,new,1)
+
+          # 2) Build one unique fighter pool. A managed fighter must never remain
+          # in the world pool as a second ranking entry.
+          old='let pool=[...s.world,...s.fighters];'
+          new='''const managedIds=new Set((s.fighters||[]).map(f=>f&&f.id).filter(Boolean));
+ s.world=(s.world||[]).filter(f=>!f||!managedIds.has(f.id));
+ let pool=Array.from(new Map([...s.world,...s.fighters].filter(f=>f&&f.id!=null).map(f=>[f.id,f])).values());'''
+          if old not in s:
+              raise SystemExit('ranking pool pattern not found')
+          s=s.replace(old,new,1)
+
+          # 3) Organization rankings: champion is not a ranked position.
+          old='let members=pool.filter(f=>f.org===o.name);'
+          new='let members=pool.filter(f=>f.org===o.name && !titleHolder(o.name,f.weight)?.id===f.id);'
+          # Use an explicit helper-safe expression instead of precedence ambiguity.
+          new='let members=pool.filter(f=>{const h=titleHolder(o.name,f.weight);return f.org===o.name && (!h || h.id!==f.id)});'
+          if old not in s:
+              raise SystemExit('org members pattern not found')
+          s=s.replace(old,new,1)
+
+          # 4) Remove duplicate ranking IDs defensively even if an old save contains duplicates.
+          s=s.replace('s.rankingsByOrg[o.name][w]=arr.map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));', 's.rankingsByOrg[o.name][w]=arr.filter((f,i,a)=>a.findIndex(x=>x.id===f.id)===i).map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));', 1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+          node --check index.html 2>/dev/null || true
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'V39: fix signed roster and separate champions from rankings [skip v39]'
+          git push
