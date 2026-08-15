@@ -518,7 +518,7 @@ if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC()
  save();
 }
 function updateRankings(){
- if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
+ if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
  let pool=[...s.world,...s.fighters];
  for(let w of WEIGHTS){
    let arr=pool.filter(f=>f.weight===w).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
@@ -706,7 +706,7 @@ function normalizeSave(){
    if(!f.worldNextFightDay)f.worldNextFightDay=s.day+rand(21,90);
    if(f.org==="DWCS")f.org=randomWorldOrg(f).name;
  });
- if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();
+ if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();
 }
 function render(){
   renderTop();
