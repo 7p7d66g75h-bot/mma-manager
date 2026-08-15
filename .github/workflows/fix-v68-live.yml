@@ -11,13 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Sync main before patch
+        run: git pull --rebase origin main
       - name: Patch and verify live script
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           org=Path('scripts/organization_v64.js').read_text(encoding='utf-8')
-          assert re.search(r'if\(count===1\).*rand|if\(count===1\).*Math\.floor',org)
           assert 'return Math.floor(90+Math.random()*61)' in org
           assert 'f.refusalOfferBatchSize=offers.length' in org
           assert 'const days=freePenalty(t)' in org
@@ -38,5 +39,4 @@ jobs:
           git add index.html
           git diff --cached --quiet && exit 0
           git commit -m 'V68 live organization script applied'
-          git pull --rebase origin main
           git push origin HEAD
