@@ -1,0 +1,73 @@
+name: V44 performance and fight result fix
+on:
+  push:
+    paths:
+      - '.github/workflows/v44-performance-fix.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          old='''  document.getElementById("nav").style.display="grid";\n  normalizeSave();\n  const targetPage=window._page||"home";'''
+          new='''  document.getElementById("nav").style.display="grid";\n  if(!s._normalized){ normalizeSave(); s._normalized=true; }\n  const targetPage=window._page||"home";'''
+          if old not in s: raise SystemExit('render block missing')
+          s=s.replace(old,new,1)
+          old='''        ensureWorld();\n        renderTop();\n        page(window._page||"home");'''
+          new='''        ensureWorld();\n        s._normalized=true;\n        renderTop();\n        page(window._page||"home");'''
+          if old not in s: raise SystemExit('world block missing')
+          s=s.replace(old,new,1)
+          old='''  s.world=[];s.worldPrepared=false;\n  window._page="home";'''
+          new='''  s.world=[];s.worldPrepared=false;s._normalized=false;\n  window._page="home";'''
+          if old not in s: raise SystemExit('new career block missing')
+          s=s.replace(old,new,1)
+          old='''try{s=JSON.parse(x);ensureWorld();save();resetCareerData();\nrender();toast("Карьера загружена")}catch(e){toast("Ошибка сохранения")}'''
+          new='''try{s=JSON.parse(x);s._normalized=false;ensureWorld();save();resetCareerData();\nrender();toast("Карьера загружена")}catch(e){toast("Ошибка сохранения")}'''
+          if old not in s: raise SystemExit('load block missing')
+          s=s.replace(old,new,1)
+          old=''' document.getElementById("frStats").onclick=()=>{\n   const statsBtn=document.getElementById("fightStats");\n   if(statsBtn){\n     statsBtn.style.display="block";\n     statsBtn.click();\n   }\n };'''
+          new=''' document.getElementById("frStats").onclick=()=>{\n   if(typeof openFightStatsOverlay==="function") openFightStatsOverlay();\n };'''
+          if old not in s: raise SystemExit('result stats handler missing')
+          s=s.replace(old,new,1)
+          old='''document.getElementById("fightStats").onclick=()=>{\n const old=document.getElementById("fightStatsOverlay"); if(old)old.remove();'''
+          new='''function openFightStatsOverlay(){\n const old=document.getElementById("fightStatsOverlay"); if(old)old.remove();'''
+          if old not in s: raise SystemExit('stats start missing')
+          s=s.replace(old,new,1)
+          old=''' document.getElementById("closeFightStats").onclick=()=>ov.remove();\n document.getElementById("closeFightStats2").onclick=()=>ov.remove();\n};\n\nconst fightControls='''
+          new=''' document.getElementById("closeFightStats").onclick=()=>ov.remove();\n document.getElementById("closeFightStats2").onclick=()=>ov.remove();\n}\n\n document.getElementById("fightStats").onclick=openFightStatsOverlay;\n\nconst fightControls='''
+          if old not in s: raise SystemExit('stats end missing')
+          s=s.replace(old,new,1)
+          old=''' let rows=[];\n eligibleOrgs.forEach(org=>{\n   let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));\n   let pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&x.name!==f.name&&!recentOpponents.has(x.name)&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));'''
+          new=''' let rows=[];\n let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));\n let matchIndex=new Map();\n for(const x of s.world){\n   if(!x||x.agencyManaged||x.name===f.name||x.weight!==f.weight||recentOpponents.has(x.name))continue;\n   const key=x.org+"|"+x.weight; let arr=matchIndex.get(key);\n   if(!arr){arr=[];matchIndex.set(key,arr)} arr.push(x);\n }\n eligibleOrgs.forEach(org=>{\n   let pool=(matchIndex.get(org.name+"|"+f.weight)||[]).filter(x=>!isTopLeague(org.name)||topLeagueEligible(x,org.name));'''
+          if old not in s: raise SystemExit('match pool missing')
+          s=s.replace(old,new,1)
+          old='''   if(pool.length<3){\n     pool=s.world.filter(x=>x.weight===f.weight&&!x.agencyManaged&&x.org===org.name&&x.name!==f.name&&(!isTopLeague(org.name)||topLeagueEligible(x,org.name)));\n   }'''
+          new='''   if(pool.length<3){\n     // Do not rescan the full world here; the indexed pool is authoritative.\n   }'''
+          if old not in s: raise SystemExit('fallback pool missing')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.findall(r'<script>(.*?)</script>',s,re.S)
+          Path('/tmp/game.js').write_text(m[-1],encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'V44: fix render lag, matchmaking scan and immediate fight stats [skip ci]'
+          git push
