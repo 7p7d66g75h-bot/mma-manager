@@ -14,32 +14,23 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer}'
-          new='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'
-          if old in s: s=s.replace(old,new,1)
-          old=''' rebalanceUFC();\n s.worldPrepared=true;'''
-          new=''' rebalanceUFC();\n ensureTitleState();\n simulateVacantTitles();\n updateRankings();\n s.worldPrepared=true;'''
-          if old not in s: raise SystemExit('ensureWorld marker not found')
-          s=s.replace(old,new,1)
-          old='''function simulateAIFight(f,o,org){\n let fav=(ovr(f)+f.form*.15+f.cardio*.1),dog=(ovr(o)+o.form*.15+o.cardio*.1),win=Math.random()<fav/(fav+dog);'''
-          new='''function simulateAIFight(f,o,org){\n ensureTitleState();\n let titleW=WEIGHTS.find(w=>f.weight===w&&o.weight===w&&s.titles?.[org]?.[w]);\n if(titleW){\n   let holder=findById(s.titles[org][titleW]);\n   if(holder&&(holder.id===f.id||holder.id===o.id)){runTitleFight(ORGS.find(x=>x.name===org),titleW,f,o);return;}\n }\n let fav=(ovr(f)+f.form*.15+f.cardio*.1),dog=(ovr(o)+o.form*.15+o.cardio*.1),win=Math.random()<fav/(fav+dog);'''
-          if old not in s: raise SystemExit('AI fight marker not found')
-          s=s.replace(old,new,1)
-          old='''   html+=`<section class="panel"><div class="actions">${tabs2}</div></section>`;\n  if(!org)'''
-          new='''   html+=`<section class="panel"><div class="actions">${tabs2}</div></section>`;\n  if(!org)'''
-          # Keep world rankings unchanged; only insert championship cards into organization views.
-          old2='''   for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];html+=`<div style="margin-top:12px"><div class="section-head"><h3>${w}</h3><span>TOP 15</span></div>${rankingRows(arr,15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`}'''
-          new2='''   for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];html+=`${championCard(org.name,w)}<div style="margin-top:12px"><div class="section-head"><h3>${w}</h3><span>TOP 15 • #1 ≠ ЧЕМПИОН</span></div>${rankingRows(arr,15)||`<div class="muted">Пока нет рейтинга.</div>`}</div>`}'''
-          if old2 not in s: raise SystemExit('rankings division marker not found')
-          s=s.replace(old2,new2,1)
+          s=s.replace('button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer}', 'button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}',1)
+          if 'ensureTitleState();simulateVacantTitles();' not in s:
+              s=s.replace(' rebalanceUFC();\n s.worldPrepared=true;', ' rebalanceUFC();\n ensureTitleState();\n simulateVacantTitles();\n updateRankings();\n s.worldPrepared=true;',1)
+          if 'let titleW=WEIGHTS.find' not in s:
+              s=s.replace('function simulateAIFight(f,o,org){\n let fav=', 'function simulateAIFight(f,o,org){\n ensureTitleState();\n let titleW=WEIGHTS.find(w=>f.weight===w&&o.weight===w&&s.titles?.[org]?.[w]);\n if(titleW){let holder=findById(s.titles[org][titleW]);if(holder&&(holder.id===f.id||holder.id===o.id)){runTitleFight(ORGS.find(x=>x.name===org),titleW,f,o);return;}}\n let fav=',1)
+          marker='for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];'
+          if 'championCard(org.name,w)' not in s and marker in s:
+              s=s.replace(marker, 'for(let w of WEIGHTS){html+=championCard(org.name,w);let arr=s.rankingsByOrg?.[org.name]?.[w]||[];',1)
           s=s.replace('const BUILD="MMA_MANAGER_V36";','const BUILD="MMA_MANAGER_V37";',1)
           s=s.replace('<title>MMA Manager V36 • Road to Champion</title>','<title>MMA Manager V37 • Road to Champion</title>',1)
           p.write_text(s,encoding='utf-8')
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html .github/workflows/championship-safe.yml
-          git commit -m 'V37 safe championship system [skip ci]'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'V37 safe championship system [skip ci]'
           git push
