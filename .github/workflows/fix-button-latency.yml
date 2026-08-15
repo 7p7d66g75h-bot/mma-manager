@@ -1,0 +1,48 @@
+name: V41 Button latency fix
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-button-latency.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch button handling
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old='  normalizeSave();\n  page(window._page||"home");'
+          new='  normalizeSave();\n  const targetPage=window._page||"home";\n  ({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[targetPage]||home)();\n  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===targetPage));'
+          if old not in s: raise SystemExit('render block not found')
+          s=s.replace(old,new,1)
+          old='document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>page(b.dataset.page));document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>b.dataset.act==="market"?market():null);document.querySelectorAll("[data-fighter-match]").forEach(b=>b.onclick=e=>{e.stopPropagation();s.selected=+b.dataset.fighterMatch;save();matchmake()});document.querySelectorAll("[data-campfighter]").forEach(b=>b.onclick=()=>{let f=findById(b.dataset.campfighter);if(!f)return;s.selected=s.fighters.findIndex(x=>x.id===f.id);save();camp()});document.querySelectorAll("[data-select]").forEach(b=>b.onclick=()=>{s.selected=+b.dataset.select;save();rosterProfile(s.selected)});document.querySelectorAll("[data-open-profile]").forEach(b=>b.onclick=e=>{e.stopPropagation();s.selected=+b.dataset.openProfile;save();rosterProfile(s.selected)});document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>act(b.dataset.act))}'
+          new='document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>page(b.dataset.page));document.querySelectorAll("[data-fighter-match]").forEach(b=>b.onclick=e=>{e.stopPropagation();s.selected=+b.dataset.fighterMatch;save();matchmake()});document.querySelectorAll("[data-campfighter]").forEach(b=>b.onclick=()=>{let f=findById(b.dataset.campfighter);if(!f)return;s.selected=s.fighters.findIndex(x=>x.id===f.id);save();camp()});document.querySelectorAll("[data-select]").forEach(b=>b.onclick=()=>{s.selected=+b.dataset.select;save();rosterProfile(s.selected)});document.querySelectorAll("[data-open-profile]").forEach(b=>b.onclick=e=>{e.stopPropagation();s.selected=+b.dataset.openProfile;save();rosterProfile(s.selected)});document.querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>act(b.dataset.act))}'
+          if old not in s: raise SystemExit('bind block not found')
+          s=s.replace(old,new,1)
+          s=s.replace('button:active{transform:scale(.985)}','button:active{transform:none}',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<script>(.*)</script>\s*</body>',s,re.S)
+          if not m: raise SystemExit('script block not found')
+          Path('/tmp/game.js').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/game.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'V41: fix delayed button taps [skip ci]'
+          git push
