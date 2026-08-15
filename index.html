@@ -498,7 +498,7 @@ function activeWorldCount(){
 }
 
 function ensureWorld(){
-if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC();return;}
+if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC();ensureTitleState();simulateVacantTitles();updateRankings();save();return;}
  generateWorld();
  expandWorldToTarget();
  if(!s.world.length)generateWorld();
