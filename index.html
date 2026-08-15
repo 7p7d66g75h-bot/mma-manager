@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V48";
+  const BUILD="MMA_MANAGER_V49";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V48 • Road to Champion</title>
+<title>MMA Manager V49 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1149,9 +1149,15 @@ function showLeagueOffers(f){
  if(recentOrgWins>=3 && f.lastFight?.result==="W") offerChance=100;
  let offers=[];
  if(Math.random()*100<=offerChance){
-   let count=Math.random()<.62?1:(Math.random()<.86?2:3);
-   let selected=all.sort((x,y)=>Math.abs(x.level-rating/10)-Math.abs(y.level-rating/10)).slice(0,count);
+   let count=Math.random()<.48?1:(Math.random()<.82?2:3);
+   let recentOfferOrgs=new Set((f.leagueOfferHistory||[]).filter(x=>s.day-(x.day||0)<120).map(x=>x.org));
+   let ranked=all.slice().sort((a,b)=>Math.abs(a.level-rating/10)-Math.abs(b.level-rating/10));
+   let fresh=ranked.filter(o=>!recentOfferOrgs.has(o.name));
+   let pool=fresh.length>=count?fresh:fresh.concat(ranked.filter(o=>!fresh.includes(o)));
+   pool=pool.sort(()=>Math.random()-.5);
+   let selected=pool.slice(0,Math.min(count,pool.length));
    offers=selected.map(o=>{let t=contractTerms(f,o);return {org:o.name,short:o.short,level:o.level,fights:choice([3,3,4]),salary:Math.max(t.salary,Math.round(t.salary*(.85+Math.random()*.25)))};});
+   f.leagueOfferHistory=[...(f.leagueOfferHistory||[]),...selected.map(o=>({org:o.name,day:s.day}))].slice(-12);
  }
  f.leagueOffers=offers; save();
  document.getElementById("modal").classList.add("open");
@@ -1209,9 +1215,10 @@ function _matchmakeHeavy(){
    : ORGS.filter(o=>o.name!=="DWCS" && (s.managerRating||30)>=Math.max(20,o.unlock-10)).filter(o=>!isTopLeague(o.name)||topLeagueEligible(f,o.name));
  let rows=[];
  let recentOpponents=new Set((f.history||[]).slice(0,3).map(h=>h.opponent).filter(Boolean));
+ let recentOfferedOpponents=new Set((f.matchmakeSeen||[]).filter(x=>s.day-(x.day||0)<60).map(x=>x.name));
  let matchIndex=new Map();
  for(const x of s.world){
-   if(!x||x.agencyManaged||x.name===f.name||x.weight!==f.weight||recentOpponents.has(x.name))continue;
+   if(!x||x.agencyManaged||x.name===f.name||x.weight!==f.weight||recentOpponents.has(x.name)||recentOfferedOpponents.has(x.name))continue;
    const key=x.org+"|"+x.weight; let arr=matchIndex.get(key);
    if(!arr){arr=[];matchIndex.set(key,arr)} arr.push(x);
  }
@@ -1246,6 +1253,8 @@ function _matchmakeHeavy(){
    if(!candidates.some(x=>x.org===r.org))candidates.push(r);
  });
  if(!candidates.length){toast(contracted?`В ${f.contract.org} сейчас нет подходящего соперника.`:"Сейчас нет подходящих предложений. Попробуй позже.");return}
+ f.matchmakeSeen=[...(f.matchmakeSeen||[]),...candidates.map(c=>({name:c.opponent.name,day:s.day}))].slice(-20);
+ save();
  document.getElementById("modal").classList.add("open");
  document.getElementById("sheet").innerHTML=`<div class="eyebrow">${contracted?"КОНТРАК • "+f.contract.org:"РЫНОК БОЁВ • СВОБОДНЫЙ БОЕЦ"}</div>
  <h2>${contracted?"Бои в рамках контракта":"Предложения из разных лиг"}</h2>
@@ -1288,12 +1297,12 @@ let f=currentF();if(!f)return;if(f.injury){toast(`Боец недоступен:
 if(!f.nextFight){document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">FIGHT CAMP</div><div class="title">Лагерь закрыт</div><div class="muted">Тренировки доступны только после назначения боя.</div><div class="actions one"><button class="primary" data-act="match">Найти бой</button></div></section>`;bind();return}
 s.trainingPoints=s.trainingPoints??7;
 let days=Math.max(0,f.nextFight.date-s.day),weeks=Math.max(3,Math.min(4,Math.ceil(days/7))),form=clamp(100-f.fatigue*.6+(f.morale-70)*.2);
-if(!f.campStyle)f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);let selected=f.campStyle,c=CAMP_STYLES.find(x=>x.id===selected)||CAMP_STYLES[0];save();
+if(!f.campStyle&&!f.campChanging)f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);let selected=f.campStyle,c=CAMP_STYLES.find(x=>x.id===selected)||null;if(c&&!f.campChanging)save();
 document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">FIGHT CAMP • ${f.nextFight.org}</div><div class="hero"><div class="avatar">${emoji(f.style)}</div><div class="hero-main"><h2>${f.name}</h2><div class="muted">vs ${f.nextFight.opponent.name} • бой через ${days} дней</div></div><div class="ovr">${form}%</div></div><div class="notice-strip">Выбери один стиль лагеря — дальше подготовка проходит автоматически по неделям. Не нужно вручную нажимать десятки тренировок.</div><div class="camp-summary"><div class="stat"><small>Форма</small><b>${form}%</b><div class="progress"><i style="width:${form}%"></i></div></div><div class="stat"><small>Лагерь</small><b>${weeks} недели</b><span class="muted">${c.name}</span></div></div></section>
 <section class="panel"><div class="section-head"><h3>Профиль подготовки</h3><span>${c?"выбран":"нужно выбрать"}</span></div>${c?`<div class="camp-choice selected"><div class="fighter-top"><div class="avatar" style="width:42px;height:42px;font-size:21px">${c.icon}</div><div class="fighter-info"><div class="fighter-name">${c.name}</div><div class="fighter-sub">${c.desc}</div></div><b class="gold">✓</b></div><div class="tags"><span class="tag good">${c.bonus}</span><span class="tag bad">${c.penalty}</span></div></div><div class="actions one"><button data-change-camp>Изменить стиль лагеря</button></div>`:`<div class="notice-strip">Выбери один стиль один раз. После выбора все недели лагеря проходят автоматически вместе с календарём.</div><div class="list">${CAMP_STYLES.map(x=>`<div class="camp-choice" data-campstyle="${x.id}"><div class="fighter-top"><div class="avatar" style="width:42px;height:42px;font-size:21px">${x.icon}</div><div class="fighter-info"><div class="fighter-name">${x.name}</div><div class="fighter-sub">${x.desc}</div></div></div><div class="tags"><span class="tag good">${x.bonus}</span><span class="tag bad">${x.penalty}</span></div></div>`).join("")}</div>`}</section>
 <section class="panel"><div class="section-head"><h3>Ход лагеря</h3><span>${weeks} недели</span></div>${Array.from({length:weeks},(_,i)=>`<div class="campweek ${i===0?"current":""}"><div class="row" style="padding:0;border:0"><b>Неделя ${i+1}</b><span class="muted">${i===0?"текущая":i===weeks-1?"пик":"подготовка"}</span></div><div class="dots">${Array.from({length:7},(_,d)=>`<span class="dot ${i===0&&d<Math.max(0,7-s.trainingPoints)?"train":""}"></span>`).join("")}</div></div>`).join("")}</section>
 <section class="panel"><div class="grid4"><div class="stat"><small>Усталость</small><b>${f.fatigue}</b></div><div class="stat"><small>Мораль</small><b>${f.morale}</b></div><div class="stat"><small>Очки</small><b>${s.trainingPoints}/7</b></div><div class="stat"><small>Стиль</small><b>${c.name}</b></div></div><div class="actions one"><button class="primary" data-page="calendar">Открыть календарь</button>${days<=0?`<button class="primary" data-act="fight">⚔️ ДЕНЬ БОЯ</button>`:""}</div></section>`;
-document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{f.campStyle=b.dataset.campstyle;f.preferredCampStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()});bind()
+document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{f.campStyle=b.dataset.campstyle;f.preferredCampStyle=b.dataset.campstyle;f.campChanging=false;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;f.campChanging=true;save();camp()});bind()
 }
 window._openCampById=function(id){const f=findById(id);if(!f){toast("Боец не найден");return}const i=s.fighters.findIndex(x=>x.id===f.id);if(i<0){toast("Боец не в ростере");return}s.selected=i;save();camp()};
 
