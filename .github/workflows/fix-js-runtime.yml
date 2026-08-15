@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply V50 + V51 patches and commit safely
+      - name: Apply V50 + V51 + V52 patches and commit safely
         shell: bash
         run: |
           set -e
@@ -22,12 +22,13 @@ jobs:
             git reset --hard origin/main
             python3 scripts/patch_v50.py
             python3 scripts/patch_v51.py
+            python3 scripts/patch_v52.py
             git add index.html
             if git diff --cached --quiet; then
               echo 'No patch changes required.'
               exit 0
             fi
-            git commit -m 'V51: contract history, 180-day discipline and refusal confirmation [skip ci]'
+            git commit -m 'V52: fix contract refusal flow and history [skip ci]'
             if git push origin HEAD:main; then
               echo "Patch committed on attempt $attempt"
               exit 0
@@ -36,5 +37,5 @@ jobs:
             git reset --hard origin/main
             sleep 2
           done
-          echo 'Could not push V51 patch after retries.'
+          echo 'Could not push V52 patch after retries.'
           exit 1
