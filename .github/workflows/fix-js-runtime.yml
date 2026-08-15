@@ -16,21 +16,9 @@ jobs:
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          s=s.replace('<title>MMA Manager V35 • Road to Champion</title>MMA Manager — Road to Champion</title>', '<title>MMA Manager V35 • Road to Champion</title>')
-          s=s.replace('ensureTitleState();updateRankings;','ensureTitleState();updateRankings;')
-          s=s.replace('ensureTitleState();updateRankings();','if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();')
-          s=s.replace('ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};','if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};')
-          old='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer}'
-          new='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'
+          old='if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC();return;}'
+          new='if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC();ensureTitleState();simulateVacantTitles();updateRankings();save();return;}'
           s=s.replace(old,new,1)
-          if 'ensureTitleState();\n simulateVacantTitles();' not in s:
-              s=s.replace(' rebalanceUFC();\n s.worldPrepared=true;', ' rebalanceUFC();\n ensureTitleState();\n simulateVacantTitles();\n updateRankings();\n s.worldPrepared=true;',1)
-          if 'let titleW=WEIGHTS.find(w=>f.weight===w&&o.weight===w&&s.titles?.[org]?.[w]);' not in s:
-              s=s.replace('function simulateAIFight(f,o,org){\n let fav=', 'function simulateAIFight(f,o,org){\n ensureTitleState();\n let titleW=WEIGHTS.find(w=>f.weight===w&&o.weight===w&&s.titles?.[org]?.[w]);\n if(titleW){let holder=findById(s.titles[org][titleW]);if(holder&&(holder.id===f.id||holder.id===o.id)){runTitleFight(ORGS.find(x=>x.name===org),titleW,f,o);return;}}\n let fav=',1)
-          if 'html+=championCard(org.name,w);' not in s:
-              s=s.replace('for(let w of WEIGHTS){let arr=s.rankingsByOrg?.[org.name]?.[w]||[];', 'for(let w of WEIGHTS){html+=championCard(org.name,w);let arr=s.rankingsByOrg?.[org.name]?.[w]||[];',1)
-          s=s.replace('const BUILD="MMA_MANAGER_V36";','const BUILD="MMA_MANAGER_V37";',1)
-          s=s.replace('<title>MMA Manager V36 • Road to Champion</title>','<title>MMA Manager V37 • Road to Champion</title>',1)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit patch
@@ -39,5 +27,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'V37: safe championships and responsive buttons [skip ci]'
+          git commit -m 'V37: initialize championships in existing careers [skip ci]'
           git push
