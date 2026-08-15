@@ -1,0 +1,46 @@
+name: Apply V65 matchmaking patch
+
+on:
+  push:
+    paths:
+      - 'scripts/organization_v65_patch.js'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply minimal V65 changes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('scripts/organization_v64.js')
+          text = p.read_text(encoding='utf-8')
+
+          old = "return 100,120"
+          new = "return 90,150"
+          if old not in text:
+              raise SystemExit('Expected V64 refusal penalty marker not found')
+          text = text.replace(old, new, 1)
+
+          old_call = "const offers=generateOffers(f);if(!offers.length){toast(f.contract?`В ${f.contract.org} сейчас нет подходящего предложения.`:'Сейчас нет подходящих предложений. Попробуй позже.');return}"
+          new_call = "const existing=(f.organizationOffers||[]).filter(x=>num(x.expires,0)>=day()&&!x.resolved);const offers=existing.length?existing:generateOffers(f);if(!offers.length){toast(f.contract?`В ${f.contract.org} сейчас нет подходящего предложения.`:'Сейчас нет подходящих предложений. Попробуй позже.');return}"
+          if old_call not in text:
+              raise SystemExit('Expected V64 matchmake generation marker not found')
+          text = text.replace(old_call, new_call, 1)
+
+          p.write_text(text, encoding='utf-8')
+
+      - name: Commit V65
+        run: |
+          git config user.name '7p7d66g75h-bot'
+          git config user.email '7p7d66g75h-bot@users.noreply.github.com'
+          git add scripts/organization_v64.js
+          git commit -m 'V65: fix refusal penalty and preserve offers on exit' || exit 0
+          git push
