@@ -1191,7 +1191,7 @@ function profile(f,back="roster"){
  <div class="sheet-actions"><button data-back-profile>Назад</button>${!f.retired?`<button class="primary" data-profile-negotiate>${s.fighters.some(x=>x.id===f.id)?"Вести дела":"Вести дела"}</button>`:""}${f.contract&&!f.nextFight?`<button class="primary" data-profile-match>Организовать бой</button>`:""}${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;
  document.querySelector("[data-back-profile]").onclick=()=>{closeModal();if(back==="market")market();else if(back==="match")matchmake();else if(back==="rankings")rankings();else if(back==="event")newsCenter();else if(back==="prefight")fight();else page("roster")};
  let ng=document.querySelector("[data-profile-negotiate]");if(ng)ng.onclick=()=>negotiate(f);
- let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);matchmake()};
+ let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);requestAnimationFrame(()=>matchmake())};
  let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};
 }
 function rosterProfile(i){s.selected=i;profile(s.fighters[i],"roster")}
@@ -1223,7 +1223,7 @@ function matchmake(){
      return Math.abs(ovr(x)-ovr(f))<=12;
    }).sort((a,b)=>Math.abs(ovr(a)-ovr(f))-Math.abs(ovr(b)-ovr(f)));
    // Realistic availability: usually only 1-2 viable offers.
-   opps.slice(0,2).forEach(o=>{
+   opps.slice(0,1).forEach(o=>{
      let rp=getPos(o), ranked=(fp>0&&fp<=15&&rp>0&&rp<=15);
      let titleFight=isChamp&&rp<=3;
      let fiveRounds=(titleFight||((ranked&&fp<=5&&rp<=5&&org.level>=8)));
@@ -1231,7 +1231,11 @@ function matchmake(){
      rows.push({titleFight:isTitleFightPair(f,o,org.name),opponent:o,org:org.name,rounds:fiveRounds?5:3,date:s.day+rand(14,42),purse:Math.max(terms.purse,Math.round(terms.purse*.45)),rank:rp,event:choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99),ranked,type:titleFight?"ТИТУЛЬНЫЙ БОЙ":(ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОБЫЧНЫЙ БОЙ"),titleFight});
    });
  });
- let candidates=rows.slice(0,2);
+ let candidates=[];
+ rows.sort(()=>Math.random()-.5).forEach(r=>{
+   if(candidates.length>=2)return;
+   if(!candidates.some(x=>x.org===r.org))candidates.push(r);
+ });
  if(!candidates.length){toast(contracted?`В ${f.contract.org} сейчас нет подходящего соперника.`:"Сейчас нет подходящих предложений. Попробуй позже.");return}
  document.getElementById("modal").classList.add("open");
  document.getElementById("sheet").innerHTML=`<div class="eyebrow">${contracted?"КОНТРАК • "+f.contract.org:"РЫНОК БОЁВ • СВОБОДНЫЙ БОЕЦ"}</div>
@@ -1363,7 +1367,8 @@ function simulateFight(f,n){
  function hit(att,def,attF){
    let zone=Math.random(),dmg=0,label="";
    let hand=(attF.handPower||attF.power||70),leg=(attF.legPower||attF.power||70);
-   let accuracy=((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220;
+   let accuracy=clamp(((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220,.55,.88);
+   if(Math.random()>accuracy){return "не попадает"}
    if(zone<.45){dmg=rand(0,2)+Math.max(0,Math.round((hand-88)/55));def.head-=dmg;label="в голову"}
    else if(zone<.75){dmg=rand(0,2)+Math.max(0,Math.round((hand-90)/60));def.body-=dmg;label="в корпус"}
    else{dmg=rand(0,2)+Math.max(0,Math.round((leg-90)/60));def.legs-=dmg;label="по ногам"}
@@ -1377,10 +1382,10 @@ function simulateFight(f,n){
    if(t<.62){
      if(Math.random()+edge*.35>.5){a.strikes=(a.strikes||0)+1;let label=hit(a,b,f);setLive(`${f.name} точно попадает ${label}`)}
      else{b.strikes=(b.strikes||0)+1;let label=hit(b,a,o);setLive(`${o.name} отвечает ${label}`)}
-   }else if(t<.84){
+   }else if(t<.76){
      let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;
-     if(Math.random()+tdEdge>.52){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}
-     else if(Math.random()-tdEdge>.48){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}
+     if(a.td<3&&Math.random()+tdEdge>.62){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}
+     else if(b.td<3&&Math.random()-tdEdge>.58){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}
      else setLive("Клинч у сетки — борьба за позицию")
    }else{
      let gEdge=((f.grap||70)-(o.grap||70))/180;
