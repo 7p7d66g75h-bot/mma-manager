@@ -1,280 +1,31 @@
-
-===== profile =====
-function profile(f,back="roster"){
- if(!f){toast("Боец не найден");return}
- let rs=recordStats(f),org=f.org||"Свободный агент",champ=f.title||null,former=f.formerChampion||null,defenses=f.titleDefenses||0; if(org!=="Свободный агент"){const th=titleHolder(org,f.weight);if(th?.id===f.id)champ={org,weight:f.weight};}
- let status=champ?`🏆 ЧЕМПИОН • ${champ.org} • защит: ${defenses}`:former?`ЭКС-ЧЕМПИОН • ${former.org} • защит: ${former.defenses||0}`:"Без чемпионского статуса";
- let history=(f.history||[]).slice(0,10).map(h=>`<div class="row"><span><b>${h.event||"Турнир"}</b><br><span class="muted">${h.date||dateLabel(h.day)} • ${h.org||f.org||"—"} • ${h.venue||"Арена"}</span><br><span class="muted">${h.card||"MAIN CARD"} • ${h.status||"Завершён"} • vs ${h.opponent||"—"} • ${h.method||"Decision"}${h.round?` • R${h.round}`:""}</span></span><b class="${h.result==="W"?"gold":""}">${h.result==="W"?"ПОБЕДА":"ПОРАЖЕНИЕ"}</b></div>`).join("");
- document.getElementById("modal").classList.add("open");
- document.getElementById("sheet").innerHTML=`<div class="eyebrow">${org==="Свободный агент"?"FREE AGENT":"PROFESSIONAL FIGHTER"} • ${f.flag||"🌍"} ${f.country||""}</div>
- <div class="hero"><div class="avatar">${emoji(f.style)}</div><div class="hero-main"><h2>${f.name}</h2><div class="muted">${f.age} лет • ${f.weight} • ${f.style}</div><div class="muted">${org} • OVR ${ovr(f)} • #${getPos(f)}</div></div><div class="ovr">${Math.round(f.rating||ovr(f))}</div></div>
- <section class="panel"><div class="notice-strip">${status}</div><div class="smallgrid"><div><small>Рекорд</small><b>${rec(f)}</b></div><div><small>Популярность</small><b>${f.popularity||0}</b></div><div><small>Потенциал</small><b>${f.potential||0}</b></div><div><small>Статус</small><b>${f.careerStage||"Prospect"}</b></div></div></section>
- <section class="panel"><div class="section-head"><h3>Статистика побед</h3><span>${rs.total} побед</span></div><div class="smallgrid"><div><small>KO/TKO</small><b>${rs.ko} • ${rs.pko}%</b></div><div><small>Сабмишны</small><b>${rs.sub} • ${rs.psub}%</b></div><div><small>Решения</small><b>${rs.dec} • ${rs.pdec}%</b></div><div><small>Досрочно</small><b>${rs.total?Math.round((rs.ko+rs.sub)/rs.total*100):0}%</b></div></div></section>
- <section class="panel"><div class="section-head"><h3>Контракт</h3><span>${f.contract?`${f.contract.fightsLeft}/${f.contract.length}`:"FREE AGENT"}</span></div>${f.contract?`<button data-terminate-contract="${f.id}" class="danger contract-terminate">Расторгнуть контракт</button>`:""}${f.leagueOffers?.length?`<div class="notice-strip">Есть ${f.leagueOffers.length} предложения от лиг.</div>`:""}${f.contract?`<div class="row"><span>Организация</span><b>${f.contract.org}</b></div><div class="row"><span>Гонорар</span><b>$${(f.contract.salary||0).toLocaleString("ru-RU")}</b></div>`:`<div class="muted">У бойца нет менеджера. Можно начать переговоры прямо из профиля.</div>`}</section>
- <section class="panel"><div class="section-head"><h3>Последние бои</h3><span>${(f.history||[]).length}</span></div>${history||`<div class="muted">Истории боёв пока нет.</div>`}</section>
- <div class="sheet-actions"><button data-back-profile>Назад</button>${!f.retired?`<button class="primary" data-profile-negotiate>${s.fighters.some(x=>x.id===f.id)?"Вести дела":"Вести дела"}</button>`:""}${f.contract&&!f.nextFight?`<button class="primary" data-profile-match>Организовать бой</button>`:""}${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;
- document.querySelector("[data-back-profile]").onclick=()=>{closeModal();if(back==="market")market();else if(back==="match")matchmake();else if(back==="rankings")rankings();else if(back==="event")newsCenter();else if(back==="prefight")fight();else page("roster")};
- let ng=document.querySelector("[data-profile-negotiate]");if(ng)ng.onclick=()=>negotiate(f);
- let mb=document.querySelector("[data-profile-match]");if(mb)mb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);requestAnimationFrame(()=>matchmake())};
- let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};
-}
-
-
-===== camp =====
-function camp(){
-let f=currentF();if(!f)return;if(f.injury){toast(`Боец недоступен: ${f.injury.name}, ${f.injury.weeks} нед.`);return}
-if(!f.nextFight){document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">FIGHT CAMP</div><div class="title">Лагерь закрыт</div><div class="muted">Тренировки доступны только после назначения боя.</div><div class="actions one"><button class="primary" data-act="match">Найти бой</button></div></section>`;bind();return}
-s.trainingPoints=s.trainingPoints??7;
-let days=Math.max(0,f.nextFight.date-s.day),weeks=Math.max(3,Math.min(4,Math.ceil(days/7))),form=clamp(100-f.fatigue*.6+(f.morale-70)*.2);
-let selected=f.campStyle||null,c=CAMP_STYLES.find(x=>x.id===selected)||null;
-document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">FIGHT CAMP • ${f.nextFight.org}</div><div class="hero"><div class="avatar">${emoji(f.style)}</div><div class="hero-main"><h2>${f.name}</h2><div class="muted">vs ${f.nextFight.opponent.name} • бой через ${days} дней</div></div><div class="ovr">${form}%</div></div><div class="notice-strip">Выбери один стиль лагеря — дальше подготовка проходит автоматически по неделям. Не нужно вручную нажимать десятки тренировок.</div><div class="camp-summary"><div class="stat"><small>Форма</small><b>${form}%</b><div class="progress"><i style="width:${form}%"></i></div></div><div class="stat"><small>Лагерь</small><b>${weeks} недели</b><span class="muted">${c.name}</span></div></div></section>
-<section class="panel"><div class="section-head"><h3>Профиль подготовки</h3><span>${c?"выбран":"нужно выбрать"}</span></div>${c?`<div class="camp-choice selected"><div class="fighter-top"><div class="avatar" style="width:42px;height:42px;font-size:21px">${c.icon}</div><div class="fighter-info"><div class="fighter-name">${c.name}</div><div class="fighter-sub">${c.desc}</div></div><b class="gold">✓</b></div><div class="tags"><span class="tag good">${c.bonus}</span><span class="tag bad">${c.penalty}</span></div></div><div class="actions one"><button data-change-camp>Изменить стиль лагеря</button></div>`:`<div class="notice-strip">Выбери один стиль один раз. После выбора все недели лагеря проходят автоматически вместе с календарём.</div><div class="list">${CAMP_STYLES.map(x=>`<div class="camp-choice" data-campstyle="${x.id}"><div class="fighter-top"><div class="avatar" style="width:42px;height:42px;font-size:21px">${x.icon}</div><div class="fighter-info"><div class="fighter-name">${x.name}</div><div class="fighter-sub">${x.desc}</div></div></div><div class="tags"><span class="tag good">${x.bonus}</span><span class="tag bad">${x.penalty}</span></div></div>`).join("")}</div>`}</section>
-<section class="panel"><div class="section-head"><h3>Ход лагеря</h3><span>${weeks} недели</span></div>${Array.from({length:weeks},(_,i)=>`<div class="campweek ${i===0?"current":""}"><div class="row" style="padding:0;border:0"><b>Неделя ${i+1}</b><span class="muted">${i===0?"текущая":i===weeks-1?"пик":"подготовка"}</span></div><div class="dots">${Array.from({length:7},(_,d)=>`<span class="dot ${i===0&&d<Math.max(0,7-s.trainingPoints)?"train":""}"></span>`).join("")}</div></div>`).join("")}</section>
-<section class="panel"><div class="grid4"><div class="stat"><small>Усталость</small><b>${f.fatigue}</b></div><div class="stat"><small>Мораль</small><b>${f.morale}</b></div><div class="stat"><small>Очки</small><b>${s.trainingPoints}/7</b></div><div class="stat"><small>Стиль</small><b>${c.name}</b></div></div><div class="actions one"><button class="primary" data-page="calendar">Открыть календарь</button>${days<=0?`<button class="primary" data-act="fight">⚔️ ДЕНЬ БОЯ</button>`:""}</div></section>`;
-document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{if((f.campWeek||1)>1){toast("Лагерь уже идёт — стиль фиксирован до боя");return}f.campStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()});bind()
-}
-window._openCampById=function(id){const f=findById(id);if(!f){toast("Боец не найден");return}const i=s.fighters.findIndex(x=>x.id===f.id);if(i<0){toast("Боец не в ростере");return}s.selected=i;save();camp()};
-
-
-
-===== simulateFight =====
-function simulateFight(f,n){
- if(f.fightResolved){toast("Этот бой уже завершён");return}
- let o=n.opponent,totalRounds=(Number(n.rounds)===5?5:3);
- let roundPlans=Array(totalRounds).fill("balanced");
- let currentPlan="balanced";
- let awaitingRoundPlan=false;
  let a={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
  let b={head:100,body:100,legs:100,stamina:100,score:0,roundScore:0,sig:0,td:0,sub:0,rounds:[],control:0};
- let round=1,roundTime=300,simTime=0,speed=1,last=performance.now(),raf,running=true,finishReason="",finishRound=null;
- let fightFinished=false;
  let scorecards=[];
-
- document.getElementById("sheet").innerHTML=`<div class="eyebrow">${n.event||"FIGHT NIGHT"} • ${n.org} • ${n.ranked?"РЕЙТИНГОВЫЙ БОЙ • ":""}${totalRounds} РАУНДОВ</div>
- <div class="fightbox"><div class="vs"><div class="corner"><div class="face">${emoji(f.style)}</div><b>${f.name}</b>
- <div class="zone"><span>ГОЛОВА <b id="ah">100</b></span><i><em id="ahb" style="width:100%"></em></i></div>
- <div class="zone"><span>КОРПУС <b id="ab">100</b></span><i><em id="abb" style="width:100%"></em></i></div>
- <div class="zone"><span>НОГИ <b id="al">100</b></span><i><em id="alb" style="width:100%"></em></i></div>
- <div class="hp">СТАМИНА <b id="as">100</b></div><div class="progress"><i id="asb" style="width:100%"></i></div></div>
- <div><div class="round">РАУНД</div><div id="rn" class="clock">1 / ${totalRounds}</div><div id="tm" class="clock">5:00</div></div>
- <div class="corner"><div class="face">${emoji(o.style)}</div><b>${o.name}</b>
- <div class="zone"><span>ГОЛОВА <b id="bh">100</b></span><i><em id="bhb" style="width:100%"></em></i></div>
- <div class="zone"><span>КОРПУС <b id="bb">100</b></span><i><em id="bbb" style="width:100%"></em></i></div>
- <div class="zone"><span>НОГИ <b id="bl">100</b></span><i><em id="blb" style="width:100%"></em></i></div>
- <div class="hp">СТАМИНА <b id="bs">100</b></div><div class="progress"><i id="bsb" style="width:100%"></i></div></div></div></div>
- <div class="actions"><button data-sp="1" class="primary">ОБЫЧНОЕ</button><button data-sp="30">УСКОРЕННОЕ</button><button data-sp="50">МОЛНИЕНОСНОЕ</button></div>
- <div class="muted" id="speedText" style="text-align:center;margin-top:5px">Скорость: 1× • 1 раунд = 5:00</div>
- <div class="live-log"><div id="live" class="live-log-text">РАУНД 1. Бойцы начинают осторожно...</div></div>
- <div class="fight-canvas-wrap"><canvas id="fightCanvas" width="960" height="540"></canvas><div class="fight-canvas-label"><span>${f.name}</span><span>2D FIGHT VISUALIZER</span><span>${o.name}</span></div></div>
  <section class="panel" style="margin-top:8px"><div class="section-head"><h3>Статистика</h3><span id="scoreRounds">0 : 0</span></div>
- <div class="grid4"><div class="stat"><small>Удары</small><b id="stSig">0 : 0</b></div><div class="stat"><small>ТД</small><b id="stTd">0 : 0</b></div><div class="stat"><small>Саб</small><b id="stSub">0 : 0</b></div><div class="stat"><small>Общий счёт</small><b id="stScore">0 : 0</b></div></div></section>
- <div id="roundAction" class="round-action" style="display:none">РАУНД ЗАВЕРШЁН</div>
- <div class="fight-controls">
- <button id="changePlanBtn" class="secondary">План раунда</button>
- <button id="fightStats" class="secondary">Статистика</button>
- <button id="nextRoundBtn" class="primary" style="display:none">▶ Следующий раунд</button>
- <button id="stopFight" class="red">Выйти</button>
-</div>`;
-
- function setLive(x){let el=document.getElementById("live");if(el)el.textContent=x}
- function hit(att,def,attF){
    let zone=Math.random(),dmg=0,label="";
-   let hand=(attF.handPower||attF.power||70),leg=(attF.legPower||attF.power||70);
-   let accuracy=clamp(((attF.handSpeed||attF.speed||70)+(attF.movement||attF.speed||70))/220,.55,.88);
    if(Math.random()>accuracy){return "не попадает"}
-   if(zone<.45){dmg=rand(0,2)+Math.max(0,Math.round((hand-88)/55));def.head-=dmg;label="в голову"}
-   else if(zone<.75){dmg=rand(0,2)+Math.max(0,Math.round((hand-90)/60));def.body-=dmg;label="в корпус"}
-   else{dmg=rand(0,2)+Math.max(0,Math.round((leg-90)/60));def.legs-=dmg;label="по ногам"}
    dmg=Math.max(1,dmg);att.score+=dmg;att.roundScore+=dmg;att.sig++;
-   att.hits=(att.hits||0)+1;
-   return label;
- }
- function event(){
    let edge=(ovr(f)-ovr(o))/120+(f.form-o.form)/320+(a.stamina-b.stamina)/500;
    let t=Math.random();
-   if(t<.62){
      if(Math.random()+edge*.35>.5){a.strikes=(a.strikes||0)+1;let label=hit(a,b,f);setLive(`${f.name} точно попадает ${label}`)}
-     else{b.strikes=(b.strikes||0)+1;let label=hit(b,a,o);setLive(`${o.name} отвечает ${label}`)}
-   }else if(t<.76){
      let tdEdge=((f.takedown||f.wrest)- (o.takedown||o.wrest))/180;
      if(a.td<3&&Math.random()+tdEdge>.62){a.td++;a.control+=rand(2,5);a.roundScore+=rand(2,5);b.stamina=Math.max(0,b.stamina-rand(4,8));setLive(`${f.name} забирает тейкдаун и контроль`)}
      else if(b.td<3&&Math.random()-tdEdge>.58){b.td++;b.control+=rand(2,5);b.roundScore+=rand(2,5);a.stamina=Math.max(0,a.stamina-rand(4,8));setLive(`${o.name} проводит тейкдаун`)}
-     else setLive("Клинч у сетки — борьба за позицию")
-   }else{
-     let gEdge=((f.grap||70)-(o.grap||70))/180;
      if(Math.random()+gEdge>.72 && Math.min(a.stamina,b.stamina)<48 && Math.random()<.12){
-       finishReason="Submission";finishRound=round;
-       setLive(`${f.name} выходит на приём!`);
-     }else setLive("Партер: работа за позицию и контроль");
-   }
    a.stamina=Math.max(0,a.stamina-rand(0,1));b.stamina=Math.max(0,b.stamina-rand(0,1));
- }
- function showNextRound(){
- const nb=document.getElementById("nextRoundBtn"),ra=document.getElementById("roundAction");
- if(ra){ra.textContent=`РАУНД ${round} ЗАВЕРШЁН`;ra.style.display="block";}
- if(nb && round<totalRounds){
-   nb.textContent=`▶ Следующий раунд • R${round+1}`;
-   nb.hidden=false;
-   nb.removeAttribute("hidden");
-   nb.style.display="flex";
-   nb.style.visibility="visible";
-   nb.style.opacity="1";
-   nb.classList.add("next-round-ready");
- }
- toast(`Раунд ${round} завершён`);
-}
-function startNextRound(){
- if(round>=totalRounds)return;
- const nb=document.getElementById("nextRoundBtn"),ra=document.getElementById("roundAction");
- if(nb)nb.style.display="none";
- if(ra)ra.style.display="none";
- round++;
- roundTime=300;simTime=0;running=true;last=performance.now();
- const rn=document.getElementById("rn"),tm=document.getElementById("tm");
- if(rn)rn.textContent=`${round} / ${totalRounds}`;
- if(tm)tm.textContent="5:00";
- currentPlan=roundPlans[round-1]||"balanced";
- draw2DFight();
- toast(`Раунд ${round} • ${fightPlanLabel(currentPlan)}`);
- raf=requestAnimationFrame(frame);
-}
-function roundEnd(){
    let ar=a.roundScore,br=b.roundScore,winner=ar>br?"A":br>ar?"B":"X";let sa=ar===br?10:(ar>br?(ar-br>18?10:10):(10-(br-ar>18?2:1))),sb=ar===br?10:(br>ar?(br-ar>18?10:10):(10-(ar-br>18?2:1)));scorecards.push({a:sa,b:sb});
-   a.rounds.push(winner);b.rounds.push(winner==="A"?"B":winner==="B"?"A":"X");
-   a.roundScore=0;b.roundScore=0;
    a.stamina=Math.min(100,a.stamina+25);b.stamina=Math.min(100,b.stamina+25);
-   let aw=a.rounds.filter(x=>x==="A").length,bw=b.rounds.filter(x=>x==="B").length;
    document.getElementById("scoreRounds").textContent=`${aw} : ${bw}`;
-   setLive(winner==="X"?`Раунд ${round} — близкий, возможен split`:`Раунд ${round} — ${winner==="A"?f.name:o.name}`);
-   if(round>=totalRounds){finish();return}
-   document.getElementById("rn").textContent=`${round} / ${totalRounds}`;
- }
- function finish(){
- if(fightFinished)return;
- fightFinished=true;f.fightResolved=true;running=false;cancelAnimationFrame(raf);
-
- let finishR=finishRound||round;
  let win=false,method="Decision",finishLabel="",scoreLines=[];
- const zoneKO=b.head<=2, zoneKO2=a.head<=2;
-
  // A declared submission always wins immediately for the fighter who initiated it.
- if(finishReason==="Submission"){
-   win=true;method="Submission";finishLabel="SUBMISSION!";
- }else if(zoneKO||zoneKO2){
-   win=zoneKO&&!zoneKO2;method="KO/TKO";finishLabel="KO!";
- }else{
-   // Only a completed scheduled fight can reach the decision branch.
    const validRounds=scorecards.length;
    const totals=scorecards.slice(0,validRounds).reduce((t,r)=>({a:t.a+r.a,b:t.b+r.b}),{a:0,b:0});
-   const aTotal=totals.a,bTotal=totals.b;
    const aWins=scorecards.filter(r=>r.a>r.b).length;
    const bWins=scorecards.filter(r=>r.b>r.a).length;
-
-   if(aWins>bWins){win=true;method="Decision";finishLabel="WINNER — UNANIMOUS DECISION";}
-   else if(bWins>aWins){win=false;method="Decision";finishLabel="WINNER — UNANIMOUS DECISION";}
-   else{
-     // Genuine split decision: two judges give it to one side, one to the other.
-     method="Split Decision";
-     const winnerA=aTotal>=bTotal;
-     win=winnerA;
-     finishLabel="WINNER — SPLIT DECISION";
-   }
    scoreLines=scorecards.map(r=>`${r.a}-${r.b}`);
- }
-
- f.lastFightDay=s.day;
- f.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"W":"L",opponent:o.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
- if(f.history.length>12)f.history.length=12;
-
- if(win){
-   f.wins++;f.winStreak=(f.winStreak||0)+1;addWinMethod(f,method);if(f.title)f.titleDefenses=(f.titleDefenses||0)+1;
    f.morale=clamp(f.morale+8);f.rating=(f.rating||ovr(f))+4;s.money+=n.purse;
-   f.form=clamp(f.form+4);f.popularity=Math.min(100,f.popularity+rand(2,5));updateManagerMetrics(true);
- }else{
-   f.losses++;f.winStreak=0;addLossMethod(f,method);if(f.title){f.formerChampion={org:f.title.org,defenses:f.titleDefenses||0};f.title=null}
    f.morale=clamp(f.morale-8);f.rating=(f.rating||ovr(f))-3;s.money+=Math.round(n.purse*.35);
-   f.form=clamp(f.form-12);f.popularity=Math.max(1,f.popularity-1);updateManagerMetrics(false);
- }
-
- const completedOrg=n.org;
- if(f.agencyContract){
-   f.agencyContract.fightsLeft=Math.max(0,(f.agencyContract.fightsLeft??f.agencyContract.length??1)-1);
-   if(f.agencyContract.fightsLeft===0)logNews(`${f.name} завершил агентский контракт. Его можно продлить через «Вести дела».`);
- }
- if(f.contract){
-   f.contract.fightsLeft=Math.max(0,(f.contract.fightsLeft??f.contract.length??1)-1);
-   if(f.contract.fightsLeft===0){f.formerContractOrg=f.contract.org;logNews(`${f.name} завершил контракт с ${f.contract.org}.`);f.contract=null;}
- }
- if(n.oneFight){
-   f.formerContractOrg=completedOrg;f.currentFightLeague=null;f.leagueOffersPending=true;
-   f.lastFight={org:completedOrg,event:n.event,winner:win?f.name:o.name,result:win?"W":"L",method,round:finishR};
- }
- f.fatigue=clamp(f.fatigue+35-Math.round(staffBonus("sportsScience")*5));applyPostFightCareer(f,win);
- updateTitlesAfterFight(f,o,win,n);f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;
- s.trainingPoints=7;s.rep=clamp(s.rep+(win?2:0),0,100);
-
- o.history=o.history||[];o.history.unshift({day:s.day,date:dateLabel(s.day),result:win?"L":"W",opponent:f.name,method,round:finishR,org:n.org,event:n.event,venue:n.venue,card:n.card,status:"Завершён"});
- if(win)o.losses++;else o.wins++;
  o.rating=(o.rating||ovr(o))+(win?-3:4);o.popularity=o.popularity??20;
- o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
-
  logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreLines.join(", ")})`:""}.`);
- updateRankings();save();if(f.leagueOffersPending){f.leagueOffersPending=false;save();}
-
- // Cinematic result overlay: appended directly to <body> so no parent
- // (.live-log, panels, sticky controls, transforms, overflow) can clip it.
- const winnerName=win?f.name:o.name;
- const oldOverlay=document.getElementById("fightResultOverlay");
- if(oldOverlay)oldOverlay.remove();
-
- // Hide every in-fight control while the result is being announced.
- [".fight-controls",".fight-canvas-wrap",".actions",".speedText",".live-log","section.panel"].forEach(sel=>{
-   document.querySelectorAll(sel).forEach(el=>{
-     if(el.id!=="fightResultOverlay") el.style.display="none";
-   });
- });
-
- const overlay=document.createElement("div");
- overlay.id="fightResultOverlay";
- overlay.className="fight-result-overlay";overlay.style.zIndex="2147483645";overlay.style.pointerEvents="auto";overlay.style.touchAction="manipulation";
- overlay.innerHTML=`
-   <div class="fight-result-card">
-     <div class="fr-kicker">ОФИЦИАЛЬНЫЙ РЕЗУЛЬТАТ</div>
-     <div id="frStage" class="fr-stage">${finishLabel}</div>
-     <div id="frRound" class="fr-round">Раунд ${finishR}</div>
      <div id="frScores" class="fr-scores">
        ${(method==="Decision"||method==="Split Decision") ? scoreLines.map((x,i)=>`<div>Судья ${i+1}: <b>${x}</b></div>`).join("") : ""}
-     </div>
-     <div id="frWinner" class="fr-winner">${winnerName}</div>
-     <div class="fr-method">${method}</div>
-     <div class="fr-actions">
-       <button id="frStats" class="secondary">СТАТИСТИКА БОЯ</button>
-       <button id="frContinue" class="primary">ПРОДОЛЖИТЬ</button>
-     </div>
-   </div>`;
- document.body.appendChild(overlay);
-
- // Show the announcement immediately; then animate emphasis without hiding the text.
- requestAnimationFrame(()=>{
-   overlay.classList.add("visible");
-   document.getElementById("frStage").classList.add("announce");
-   setTimeout(()=>document.getElementById("frWinner").classList.add("winner-show"),650);
- });
-
- document.getElementById("frStats").onclick=(e)=>{e.preventDefault();e.stopPropagation();openFightStatsOverlay()};
- overlay.addEventListener("click",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});
- overlay.addEventListener("pointerup",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});
- document.getElementById("frContinue").onclick=()=>{
-   overlay.remove();
-   closeModal();
-   // A fighter under an active league contract stays with that league.
-   // When the contract has ended, the market evaluates fresh offers now.
-   if(f.lastFight?.result==="W" && !f.contract && f.agencyManaged){
-     showLeagueOffers(f);
-   }else{
-     page("home");
-   }
- };
-
-}
- 
