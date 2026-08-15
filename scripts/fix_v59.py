@@ -1,0 +1,101 @@
+from pathlib import Path
+import re
+
+p = Path('index.html')
+s = p.read_text(encoding='utf-8')
+
+# 1) Remove the V53 runtime patch. It introduced the unwanted fixed contract dock,
+#    duplicate history UI, and camp/contract overrides. Keep the core game intact.
+s, n = re.subn(r'<script id="MMA_MANAGER_V53_PRESERVE_MECHANICS">.*?</script>\s*', '', s, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('V53 script not found exactly once')
+
+# 2) Replace V52 history renderer so history exists only as the existing clickable
+#    panel on a fighter profile. It must not appear in fight negotiations/results.
+new_history = r'''function v52HistoryUI(){try{
+  const sheet=document.getElementById('sheet');
+  if(!sheet)return;
+  const old=sheet.querySelector('#v52HistoryPanel');
+  if(old)old.remove();
+  const eye=(sheet.querySelector('.eyebrow')?.textContent||'').trim();
+  const isProfile=eye.startsWith('PROFESSIONAL FIGHTER')||eye.startsWith('FREE AGENT');
+  if(!isProfile)return;
+  const f=typeof currentF==='function'?currentF():null;
+  if(!f)return;
+  v52SyncCurrentContract(f);
+  const entries=f.contractHistory||[];
+  const box=document.createElement('section');
+  box.id='v52HistoryPanel';
+  box.className='panel v52-history';
+  box.style.cursor='pointer';
+  box.setAttribute('role','button');
+  box.setAttribute('tabindex','0');
+  box.innerHTML=`<div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div><div class="muted">Нажми, чтобы посмотреть, где боец выступал и как завершались его контракты.</div>`;
+  const anchor=[...sheet.querySelectorAll('.panel')].find(x=>(x.innerText||'').includes('Контракт'));
+  if(anchor)anchor.after(box);else sheet.appendChild(box);
+  const open=()=>{
+    const oldOverlay=document.getElementById('v52HistoryOverlay');if(oldOverlay)oldOverlay.remove();
+    const ov=document.createElement('div');ov.id='v52HistoryOverlay';ov.className='v52-contract-overlay';
+    ov.innerHTML=`<div class="v52-contract-card"><div class="section-head"><h3>История контрактов</h3><button id="v52HistoryClose">×</button></div><div class="muted" style="margin-bottom:12px">${f.name} • ${f.weight} • ${f.country||''}</div>${entries.length?entries.map(h=>{const label=h.status==='fired'?'УВОЛЕН':h.status==='ended'?'ЗАВЕРШЁН':h.status==='left'?'УШЁЛ САМ':h.status==='warning'?'ПРЕДУПРЕЖДЕНИЕ':h.status==='final_warning'?'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ':'ДЕЙСТВУЕТ';return `<div class="v52-history-entry"><b>${h.org||'Лига'} — ${label}</b><small>${h.date||dateLabel(h.day||s.day)}${h.reason?' • '+h.reason:''}</small>${h.fights?`<small>Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</small>`:''}</div>`}).join(''):'<div class="muted">История контрактов пока пуста.</div>'}<div class="sheet-actions" style="position:static;margin-top:14px"><button id="v52HistoryClose2" class="primary">Закрыть</button></div></div>`;
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();ov.querySelector('#v52HistoryClose').onclick=close;ov.querySelector('#v52HistoryClose2').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+  };
+  box.onclick=open;box.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')open()};
+}catch(e){console.warn('V59 history UI',e)}}
+'''
+s, n = re.subn(r'function v52HistoryUI\(\)\{try\{.*?\}\}\s*new MutationObserver', new_history + 'new MutationObserver', s, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('V52 history function not found exactly once')
+
+# 3) Add a single V59 compatibility layer. It restores the old contract termination
+#    button, leaves the existing salary formula untouched, and makes camp selection
+#    work through event delegation on iPhone/Safari.
+patch = r'''
+<script id="MMA_MANAGER_V59_FIX">
+(function(){'use strict';
+  // Existing contract salary logic is intentionally left untouched.
+  const esc59=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+  function current59(){return typeof currentF==='function'?currentF():null}
+  function addHistory59(f,status,reason,extra){
+    if(!f)return;f.contractHistory=Array.isArray(f.contractHistory)?f.contractHistory:[];
+    f.contractHistory.unshift(Object.assign({org:f.contract?.org||f.formerContractOrg||'—',status,reason,day:s.day,date:dateLabel(s.day)},extra||{}));
+    f.contractHistory=f.contractHistory.slice(0,50);
+  }
+  function terminate59(f){
+    if(!f?.contract){toast('У бойца нет действующего контракта');return}
+    const org=f.contract.org,left=f.contract.fightsLeft??f.contract.length??0;
+    const ov=document.createElement('div');ov.className='v52-contract-overlay';ov.id='v59TerminateOverlay';
+    ov.innerHTML=`<div class="v52-contract-card"><div style="font-size:46px;text-align:center">⚠️</div><div class="eyebrow" style="text-align:center">РАСТОРЖЕНИЕ КОНТРАКТА</div><div class="v51-warning-title">Расторгнуть контракт?</div><div class="v51-warning-sub">${esc59(f.name)} • ${esc59(org)} • осталось ${left} боёв.</div><div class="sheet-actions" style="position:static;margin-top:18px"><button id="v59TermBack">Отмена</button><button id="v59TermYes" class="red">Да, расторгнуть</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#v59TermBack').onclick=()=>ov.remove();
+    ov.querySelector('#v59TermYes').onclick=()=>{addHistory59(f,'left','Контракт расторгнут менеджером',{fightsLeft:left});f.formerContractOrg=org;f.formerContractReason='Контракт расторгнут менеджером';f.contract=null;f.leagueOffers=[];f.currentFightLeague=null;save();ov.remove();profile(f,'roster');toast(`${f.name}: контракт с ${org} расторгнут`)};
+  }
+
+  // The existing button in the profile becomes functional; no replacement button is created.
+  document.addEventListener('click',function(e){
+    const term=e.target.closest?.('[data-terminate-contract]');
+    if(term){e.preventDefault();e.stopImmediatePropagation();terminate59(current59());return}
+
+    // Make the existing camp-change button reliable on touch devices.
+    const change=e.target.closest?.('[data-change-camp]');
+    if(change){e.preventDefault();e.stopImmediatePropagation();const f=current59();if(!f)return;f.campChanging=true;f.campStyle=null;save();camp();return}
+    const style=e.target.closest?.('[data-campstyle]');
+    if(style){e.preventDefault();e.stopImmediatePropagation();const f=current59();if(!f)return;f.campStyle=style.dataset.campstyle;f.preferredCampStyle=style.dataset.campstyle;f.campChanging=false;save();camp();return}
+  },true);
+
+  // v30 hid the existing terminate button. Restore it; do not create a second one.
+  const st=document.createElement('style');st.textContent='.contract-terminate{display:block!important;width:100%;margin-top:9px}.v52-history{cursor:pointer}';document.head.appendChild(st);
+  window.MMA_MANAGER_V59_FIX=true;
+})();
+</script>
+'''
+s=s.replace('</body>', patch+'\n</body>', 1)
+
+# Bump only the visible build marker/title. No gameplay code is replaced by this step.
+s=s.replace('MMA_MANAGER_V53_PRESERVE_MECHANICS','MMA_MANAGER_V59_STABLE_FIX',1)
+s=s.replace('<title>MMA Manager V53 • Road to Champion</title>','<title>MMA Manager V59 • Road to Champion</title>',1)
+
+p.write_text(s,encoding='utf-8')
+print('patched',len(s))
+'''
