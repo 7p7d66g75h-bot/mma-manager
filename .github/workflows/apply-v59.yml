@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'Apply V61 stable fix')
+    if: github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, 'Apply V61 stable fix') && !contains(github.event.head_commit.message, 'Apply V62 gameplay fix'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
