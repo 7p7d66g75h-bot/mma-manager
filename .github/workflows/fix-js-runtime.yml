@@ -11,15 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply V50 patch
-        run: python3 scripts/patch_v50.py
-      - name: Apply V51 contract history patch
-        run: python3 scripts/patch_v51.py
-      - name: Commit patch
+      - name: Apply V50 + V51 patches and commit safely
+        shell: bash
         run: |
+          set -e
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'V51: contract history, 180-day discipline and refusal confirmation [skip ci]'
-          git push
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            python3 scripts/patch_v50.py
+            python3 scripts/patch_v51.py
+            git add index.html
+            if git diff --cached --quiet; then
+              echo 'No patch changes required.'
+              exit 0
+            fi
+            git commit -m 'V51: contract history, 180-day discipline and refusal confirmation [skip ci]'
+            if git push origin HEAD:main; then
+              echo "Patch committed on attempt $attempt"
+              exit 0
+            fi
+            echo "Concurrent workflow won attempt $attempt; retrying..."
+            git reset --hard origin/main
+            sleep 2
+          done
+          echo 'Could not push V51 patch after retries.'
+          exit 1
