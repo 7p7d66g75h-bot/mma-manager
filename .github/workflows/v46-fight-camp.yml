@@ -1,4 +1,4 @@
-name: V46 fight result and camp controls
+name: V47 fight camp
 on:
   push:
     branches: [main]
@@ -10,35 +10,73 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch controls
+      - name: Patch game
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           original=s
-          s=s.replace('const BUILD="MMA_MANAGER_V45";','const BUILD="MMA_MANAGER_V46";',1)
-          s=s.replace('<title>MMA Manager V44 • Road to Champion</title>','<title>MMA Manager V46 • Road to Champion</title>',1)
-          old='<button data-campfighter="${x.id}">Лагерь</button>'
-          new='<button data-campfighter="${x.id}" onclick="event.stopPropagation();window._openCampById(\'${x.id}\')">Лагерь</button>'
-          if old not in s: raise SystemExit('camp button target not found')
-          s=s.replace(old,new,1)
-          marker='function applyCampWeek(f){'
-          bridge='window._openCampById=function(id){const f=findById(id);if(!f){toast("Боец не найден");return}const i=s.fighters.findIndex(x=>x.id===f.id);if(i<0){toast("Боец не в ростере");return}s.selected=i;save();camp()};\n\n'
-          if marker not in s: raise SystemExit('camp function marker not found')
+          s=s.replace('const BUILD="MMA_MANAGER_V46";','const BUILD="MMA_MANAGER_V47";',1)
+          s=s.replace('<title>MMA Manager V45 • Road to Champion</title>','<title>MMA Manager V47 • Road to Champion</title>',1)
+          # Remove the camp button from the HOME / upcoming-fights list.
+          s=re.sub(r'<button data-campfighter="\$\{x\.id\}"[^>]*>Лагерь</button>','',s, count=1)
+          # Add a persistent fighter-style -> default camp mapping.
+          marker='function camp(){'
+          bridge='''function defaultCampStyleForFighter(f){const m={"Wrestler":"wrestling","Grappler":"grappling","Striker":"striking","Pressure Fighter":"conditioning","Counter Striker":"striking"};return m[f?.style]||"balanced";}\n\n'''
+          if marker not in s: raise SystemExit('camp marker not found')
           s=s.replace(marker,bridge+marker,1)
+          # After a bout is accepted, automatically start with the fighter-appropriate camp;
+          # a previously saved preference wins and carries into later bouts.
+          old='f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;'
+          new='f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;'
+          if old not in s: raise SystemExit('fight acceptance target not found')
+          s=s.replace(old,new,1)
+          # Make camp open reliably from the fighter profile and put it beside the pre-fight button.
+          old='${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button>`:""}</div>`;'
+          new='${f.nextFight?`<button class="primary" data-profile-fight>Предматчевый экран</button><button data-profile-camp>Лагерь</button>`:""}</div>`;'
+          if old not in s: raise SystemExit('profile action target not found')
+          s=s.replace(old,new,1)
+          old='let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};'
+          new='let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()}; let cb=document.querySelector("[data-profile-camp]");if(cb)cb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);camp()};'
+          if old not in s: raise SystemExit('profile camp binding target not found')
+          s=s.replace(old,new,1)
+          # Automatically materialize the default camp if old saves have no campStyle.
+          old='let selected=f.campStyle||null,c=CAMP_STYLES.find(x=>x.id===selected)||null;'
+          new='if(!f.campStyle)f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);let selected=f.campStyle,c=CAMP_STYLES.find(x=>x.id===selected)||CAMP_STYLES[0];save();'
+          if old not in s: raise SystemExit('camp selection target not found')
+          s=s.replace(old,new,1)
+          # Changing a camp is a real persistent preference, not a cosmetic toggle.
+          old='document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{if((f.campWeek||1)>1){toast("Лагерь уже идёт — стиль фиксирован до боя");return}f.campStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()})'
+          new='document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{f.campStyle=b.dataset.campstyle;f.preferredCampStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()})'
+          if old not in s: raise SystemExit('camp choice target not found')
+          s=s.replace(old,new,1)
+          # Camp already changes core combat attributes each week; additionally make the chosen camp
+          # alter fight-day form so it matters even when a bout has very little lead time.
+          old='function applyCampWeek(f){ let c=CAMP_STYLES.find(x=>x.id===(f.campStyle||"balanced"))||CAMP_STYLES[0];'
+          new='function applyCampWeek(f){ let c=CAMP_STYLES.find(x=>x.id===(f.campStyle||f.preferredCampStyle||defaultCampStyleForFighter(f)))||CAMP_STYLES[0];'
+          if old not in s: raise SystemExit('applyCampWeek target not found')
+          s=s.replace(old,new,1)
+          old='f.fatigue=clamp(f.fatigue+c.fatigue);f.form=clamp(100-f.fatigue*.6+(f.morale-70)*.2);s.trainingPoints=7;'
+          new='f.fatigue=clamp(f.fatigue+c.fatigue);let campFormBonus=c.id==="peak"?8:c.id==="conditioning"?5:c.id==="striking"||c.id==="wrestling"||c.id==="grappling"?3:1;f.form=clamp(100-f.fatigue*.6+(f.morale-70)*.2+campFormBonus);f.campPerformance=campFormBonus;s.trainingPoints=7;'
+          if old not in s: raise SystemExit('camp form target not found')
+          s=s.replace(old,new,1)
+          # Keep the chosen preference after the fight so the next fight can reuse it.
+          old='f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=null;'
+          new='f.nextFight=null;f.campWeek=0;f.campSchedule={};f.campStyle=f.preferredCampStyle||null;f.campPerformance=0;'
+          if old not in s: raise SystemExit('post fight camp reset target not found')
+          s=s.replace(old,new,1)
+          # Keep the existing fight-result/statistics fixes.
           old='overlay.className="fight-result-overlay";'
           new='overlay.className="fight-result-overlay";overlay.style.zIndex="2147483645";overlay.style.pointerEvents="auto";overlay.style.touchAction="manipulation";'
-          if old not in s: raise SystemExit('result overlay target not found')
-          s=s.replace(old,new,1)
+          if old in s:s=s.replace(old,new,1)
           old='document.getElementById("frStats").onclick=(e)=>{\n   e.preventDefault(); e.stopPropagation();\n   if(typeof openFightStatsOverlay==="function") openFightStatsOverlay();\n };'
           new='document.getElementById("frStats").onclick=(e)=>{e.preventDefault();e.stopPropagation();openFightStatsOverlay()};\n overlay.addEventListener("click",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});\n overlay.addEventListener("pointerup",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});'
-          if old not in s: raise SystemExit('frStats binding target not found')
-          s=s.replace(old,new,1)
+          if old in s:s=s.replace(old,new,1)
           old='ov.style.cssText="position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";'
           new='ov.style.cssText="position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";'
-          if old not in s: raise SystemExit('stats overlay css target not found')
-          s=s.replace(old,new,1)
+          if old in s:s=s.replace(old,new,1)
           if s==original: raise SystemExit('no changes made')
           p.write_text(s,encoding='utf-8')
           PY
@@ -55,9 +93,9 @@ jobs:
           node --check /tmp/game.js
       - name: Commit patch
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add index.html
-          git commit -m 'V46: fix fight stats and camp controls [skip v46]'
+          git commit -m 'V47: move camp to fighter profile and make it affect preparation [skip v47]'
           git pull --rebase origin main
           git push origin HEAD:main
