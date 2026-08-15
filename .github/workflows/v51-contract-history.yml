@@ -1,0 +1,196 @@
+name: V51 contract discipline and history
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v51-contract-history.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch contract discipline and history
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'MMA_MANAGER_V51_CONTRACT_HISTORY' in s:
+              raise SystemExit(0)
+          s=s.replace('const BUILD="MMA_MANAGER_V49";', 'const BUILD="MMA_MANAGER_V51_CONTRACT_HISTORY";', 1)
+          s=s.replace('<title>MMA Manager V49 • Road to Champion</title>', '<title>MMA Manager V51 • Road to Champion</title>', 1)
+          css=r'''
+<style id="contract-discipline-v51-css">
+.v51-contract-overlay{position:fixed!important;inset:0!important;z-index:2147483647!important;background:rgba(0,0,0,.94)!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:18px!important;box-sizing:border-box!important}
+.v51-contract-warning{width:min(680px,100%);max-height:92dvh;overflow:auto;background:linear-gradient(155deg,#171b21,#080b0f);border:2px solid #8d2525;border-radius:18px;padding:22px;box-shadow:0 25px 100px #000}
+.v51-warning-icon{font-size:54px;text-align:center}.v51-warning-title{font-size:clamp(24px,7vw,38px);font-weight:1000;text-align:center;margin:8px 0}.v51-warning-sub{text-align:center;color:#c8cdd3;font-size:13px;line-height:1.45}.v51-risk{margin:15px 0;padding:13px;border:1px solid #5e3434;background:#211416;border-radius:10px}.v51-risk b{color:#ef7777}.v51-reason{display:grid;gap:7px;margin-top:14px}.v51-reason button{text-align:left}.v51-reason button.selected{border-color:#d5ae42;background:#292314}.v51-contract-history{margin-top:10px}.v51-contract-entry{padding:10px 0;border-bottom:1px solid #2b3138}.v51-contract-entry:last-child{border-bottom:0}.v51-contract-entry b{display:block}.v51-contract-entry small{display:block;color:#8e98a4;margin-top:3px}.v51-status-fired{color:#dc7777}.v51-status-ended{color:#d5ae42}.v51-status-left{color:#8eb4e6}.v51-status-active{color:#63c78a}
+</style>
+'''
+          js=r'''
+<script id="MMA_MANAGER_V51_CONTRACT_HISTORY">
+(function(){
+  'use strict';
+  const WINDOW=180;
+  const REASONS={
+    injury:'Травма / плохое состояние',
+    weight:'Проблемы со сгонкой веса',
+    camp:'Слишком короткий срок подготовки',
+    opponent:'Слишком сильный соперник',
+    money:'Не устроили условия',
+    personal:'Личные причины',
+    refuse:'Просто отказался'
+  };
+  function esc(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
+  function ensure(f){
+    if(!f)return;
+    f.contractHistory=Array.isArray(f.contractHistory)?f.contractHistory:[];
+    f.discipline=f.discipline||{};
+    f.discipline.refusals=Array.isArray(f.discipline.refusals)?f.discipline.refusals:[];
+    f.discipline.warnings=Number(f.discipline.warnings||0);
+    f.discipline.trust=Number.isFinite(f.discipline.trust)?f.discipline.trust:100;
+    f.discipline.lastWarningDay=f.discipline.lastWarningDay||0;
+  }
+  function recent(f){
+    ensure(f);const cutoff=(s.day||1)-WINDOW;
+    f.discipline.refusals=f.discipline.refusals.filter(x=>Number(x.day||0)>cutoff);
+    return f.discipline.refusals;
+  }
+  function disciplineLevel(f){
+    const n=recent(f).length;
+    if(n>=4)return 'CRITICAL';
+    if(n===3)return 'HIGH';
+    if(n===2)return 'WARNING';
+    if(n===1)return 'CAUTION';
+    return 'GOOD';
+  }
+  function recordContract(f,org,status,reason){
+    ensure(f);
+    f.contractHistory.unshift({org,status,reason:reason||'',day:s.day||1,date:typeof dateLabel==='function'?dateLabel(s.day||1):`День ${s.day||1}`});
+    f.contractHistory=f.contractHistory.slice(0,30);
+  }
+  function startContract(f,x){
+    ensure(f);
+    recordContract(f,x.org,'active','Подписан контракт');
+    f.contractHistory[0].fights=x.fights;
+    f.contractHistory[0].salary=x.salary;
+  }
+  function warningText(f){
+    const n=recent(f).length;
+    if(n===0)return 'Это первый отказ за последние 180 дней. Формального предупреждения пока нет.';
+    if(n===1)return 'Это второй отказ за последние 180 дней. Следующее нарушение может привести к расторжению контракта.';
+    if(n===2)return 'Это третий отказ за последние 180 дней. Риск расторжения контракта высокий.';
+    return 'За последние 180 дней уже накоплено слишком много отказов. Лига может расторгнуть контракт.';
+  }
+  function showWarning(f,offer,finish){
+    ensure(f);
+    const old=document.getElementById('v51ContractWarning');if(old)old.remove();
+    const n=recent(f).length;
+    const ov=document.createElement('div');ov.id='v51ContractWarning';ov.className='v51-contract-overlay';
+    ov.innerHTML=`<div class="v51-contract-warning">
+      <div class="v51-warning-icon">⚠️</div>
+      <div class="eyebrow" style="text-align:center">КОНТРАК • ${esc(f.contract.org)}</div>
+      <div class="v51-warning-title">Вы уверены, что хотите отказаться?</div>
+      <div class="v51-warning-sub">${esc(f.name)} находится на действующем контракте с <b>${esc(f.contract.org)}</b>.</div>
+      <div class="v51-risk"><b>Внимание:</b> отказ будет записан в дисциплинарную историю. Частые отказы за последние 180 дней могут привести к предупреждению, ухудшению доверия лиги, более сложному получению рейтинговых и титульных боёв и расторжению контракта.</div>
+      <div class="row"><span>Отказов за 180 дней</span><b>${n}</b></div>
+      <div class="row"><span>Статус дисциплины</span><b>${disciplineLevel(f)}</b></div>
+      <div class="muted" style="margin-top:10px">${esc(warningText(f))}</div>
+      <div class="eyebrow" style="margin-top:15px">ПРИЧИНА ОТКАЗА</div>
+      <div class="v51-reason">${Object.entries(REASONS).map(([k,v],i)=>`<button data-v51-reason="${k}" class="${i===0?'selected':''}">${v}</button>`).join('')}</div>
+      <div class="sheet-actions" style="position:static;margin-top:16px"><button id="v51AcceptFight" class="primary">Принять бой</button><button id="v51ConfirmRefusal" class="red">Да, отказаться</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+    let reason='injury';
+    ov.querySelectorAll('[data-v51-reason]').forEach(b=>b.onclick=()=>{reason=b.dataset.v51Reason;ov.querySelectorAll('[data-v51-reason]').forEach(x=>x.classList.remove('selected'));b.classList.add('selected')});
+    document.getElementById('v51AcceptFight').onclick=()=>ov.remove();
+    document.getElementById('v51ConfirmRefusal').onclick=()=>{
+      recent(f);
+      const day=s.day||1;
+      f.discipline.refusals.push({day,org:f.contract.org,reason,opponent:offer?.opponent?.name||'',type:offer?.type||''});
+      const total=f.discipline.refusals.length;
+      f.discipline.trust=Math.max(0,100-total*18);
+      let status='refused';
+      if(total===1){f.discipline.warnings=Math.max(f.discipline.warnings,1);status='warning'}
+      else if(total===2){f.discipline.warnings=Math.max(f.discipline.warnings,2);status='final_warning'}
+      else if(total>=3){f.discipline.warnings=Math.max(f.discipline.warnings,3);}
+      recordContract(f,f.contract.org,status,`Отказ: ${REASONS[reason]||reason}`);
+      if(total>=3){
+        const org=f.contract.org;recordContract(f,org,'fired',`Расторжение за частые отказы (${total} за 180 дней)`);
+        f.formerContractOrg=org;f.formerContractReason=`Уволен лигой: частые отказы от боёв (${total} за 180 дней)`;f.contract=null;f.discipline.firedDay=day;
+        if(typeof logNews==='function')logNews(`${f.name} уволен из ${org} за систематические отказы от боёв.`,'DISCIPLINE');
+        if(typeof toast==='function')toast(`Контракт с ${org} расторгнут`);
+      }else if(typeof toast==='function'){
+        toast(total===1?'Лига вынесла предупреждение.': 'Последнее предупреждение лиги.');
+      }
+      save();ov.remove();closeModal();page('home');
+    };
+  }
+  function declineFree(f,offers,index){
+    ensure(f);const x=offers[index];if(!x)return;
+    offers.splice(index,1);f.leagueOffers=offers;save();
+    if(!offers.length){closeModal();page('home');if(typeof toast==='function')toast('Все предложения отклонены');}
+    else if(typeof renderOffersOnly==='function')renderOffersOnly(f,offers);
+  }
+  function addHistoryUI(){
+    try{
+      const sheet=document.getElementById('sheet');if(!sheet||sheet.querySelector('#v51HistoryPanel'))return;
+      const title=sheet.querySelector('.title');if(!title)return;
+      const name=(title.textContent||'').trim();
+      const f=(typeof allPool==='function'?allPool():[]).find(x=>x.name===name);
+      if(!f)return;ensure(f);
+      const entries=f.contractHistory||[];
+      const box=document.createElement('section');box.id='v51HistoryPanel';box.className='panel v51-contract-history';
+      box.innerHTML=`<div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div>${entries.length?entries.map(h=>{let cls=h.status==='fired'?'v51-status-fired':h.status==='ended'?'v51-status-ended':h.status==='left'?'v51-status-left':h.status==='active'?'v51-status-active':'';let label=h.status==='fired'?'УВОЛЕН':h.status==='ended'?'ЗАВЕРШЁН':h.status==='left'?'УШЁЛ САМ':h.status==='warning'?'ПРЕДУПРЕЖДЕНИЕ':h.status==='final_warning'?'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ':'ДЕЙСТВУЕТ';return `<div class="v51-contract-entry"><b>${esc(h.org||'Лига')} — <span class="${cls}">${label}</span></b><small>${esc(h.date||('День '+h.day))}${h.reason?' • '+esc(h.reason):''}</small>${h.fights?`<small>Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</small>`:''}</div>`}).join(''):`<div class="muted">Контрактов пока нет.</div>`}`;
+      const contractPanel=[...sheet.querySelectorAll('.panel')].find(x=>(x.innerText||'').includes('Контракт'));
+      if(contractPanel)contractPanel.after(box);else sheet.insertBefore(box,sheet.querySelector('.sheet-actions')||null);
+    }catch(e){console.warn('V51 history UI',e)}
+  }
+  function acceptOfferCapture(e){
+    const b=e.target.closest?.('[data-accept-offer]');if(!b)return;
+    const f=typeof currentF==='function'?currentF():null;if(!f)return;
+    const offers=f.leagueOffers||[];const i=Number(b.dataset.acceptOffer);const x=offers[i];if(!x)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    ensure(f);f.contract={org:x.org,length:x.fights,fightsLeft:x.fights,salary:x.salary,fee:0,source:'league_offer'};f.leagueOffers=[];startContract(f,x);
+    if(typeof logNews==='function')logNews(`${f.name} подписал контракт с ${x.org}.`,'CONTRACT');
+    save();closeModal();page('roster');if(typeof toast==='function')toast(`${f.name}: контракт с ${x.org}`);
+  }
+  function declineCapture(e){
+    const b=e.target.closest?.('[data-decline-offer]');if(!b)return;
+    const f=typeof currentF==='function'?currentF():null;if(!f)return;
+    const offers=f.leagueOffers||[];const i=Number(b.dataset.declineOffer);const x=offers[i];if(!x)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    if(f.contract){showWarning(f,x,()=>{});return}
+    declineFree(f,offers,i);
+  }
+  document.addEventListener('click',acceptOfferCapture,true);
+  document.addEventListener('click',declineCapture,true);
+  const observer=new MutationObserver(()=>setTimeout(addHistoryUI,0));
+  observer.observe(document.body,{childList:true,subtree:true});
+  setTimeout(addHistoryUI,300);
+  window.V51ContractHistory={ensure,recordContract,recent,disciplineLevel};
+})();
+</script>
+'''
+          if '</head>' in s:
+              s=s.replace('</head>',css+'</head>',1)
+          if '</body>' in s:
+              s=s.replace('</body>',js+'\n</body>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit patched game
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'V51: contract history, 180-day discipline and refusal confirmation [skip ci]'
+          git push
