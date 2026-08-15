@@ -14,15 +14,13 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           s=Path('index.html').read_text(encoding='utf-8')
+          a=s.find('function simulateFight('); b=s.find('function draw2DFight(',a)
+          q=s[a:b]
+          keys=['Math.random','ovr(','f\.','o\.','a\.','b\.','sig','td','sub','stamina','score']
           out=[]
-          for name,nextname in [('profile','rosterProfile'),('camp','applyCampWeek'),('simulateFight','draw2DFight')]:
-            a=s.find('function '+name+'(')
-            b=s.find('function '+nextname+'(',a+1) if a>=0 else -1
-            if a>=0:
-              if b<0:b=min(len(s),a+30000)
-              out.append('\n===== '+name+' =====\n'+s[a:b]+'\n')
+          for line in q.splitlines():
+            if any(k in line for k in keys): out.append(line+'\n')
           Path('inspect.txt').write_text(''.join(out),encoding='utf-8')
           PY
       - name: Commit
@@ -30,5 +28,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add inspect.txt
-          git commit -m 'inspect fight logic [skip inspect]'
+          git commit -m 'inspect fight formulas [skip inspect]'
           git push
