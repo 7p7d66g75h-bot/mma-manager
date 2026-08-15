@@ -684,7 +684,7 @@ function renderTop(){
 }
 function normalizeSave(){
  s.managerRecord=s.managerRecord||{wins:s.managerWins||0,losses:s.managerLosses||0,draws:0};
- s.fighters?.forEach(f=>{if(f.contract&&!f.contract.org){f.contract.org="LFA";f.contract.fightsLeft=f.contract.fightsLeft??f.contract.length??3}});
+ s.fighters?.forEach(f=>{if(f.contract&&!f.contract.org){f.contract.org="LFA";f.contract.fightsLeft=f.contract.fightsLeft??f.contract.length??3}if(f.contract){f.contract.refusalCount=f.contract.refusalCount||0;f.contract.refusalWindowStart=f.contract.refusalWindowStart||s.day}});
  s.staff=s.staff||{headCoach:50,strikingCoach:50,wrestlingCoach:50,sportsScience:50,cutman:50};
  s.titles=s.titles||{};s.rivalries=s.rivalries||[];s.injuryReserve=s.injuryReserve||[];s.pressScore=s.pressScore||0;
  s.managerRating=s.managerRating||50;s.managerPopularity=s.managerPopularity||8;s.marketPool=s.marketPool||null;s.marketRefresh=s.marketRefresh||0;
@@ -1204,6 +1204,33 @@ function profile(f,back="roster"){
  let fb=document.querySelector("[data-profile-fight]");if(fb)fb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);fight()};let cb=document.querySelector("[data-profile-camp]");if(cb)cb.onclick=()=>{closeModal();s.selected=s.fighters.findIndex(x=>x.id===f.id);camp()};
 }
 function rosterProfile(i){s.selected=i;profile(s.fighters[i],"roster")}
+function refusalPenalty(f){
+ let c=f?.contract;if(!c)return 0;
+ let count=Number(c.refusalCount||0);
+ if(c.refusalWindowStart&&s.day-c.refusalWindowStart>180){c.refusalCount=0;c.refusalWindowStart=s.day;count=0}
+ return Math.min(.45,count*.12);
+}
+function registerFightRefusal(f){
+ if(!f?.contract)return;
+ let c=f.contract;
+ if(!c.refusalWindowStart||s.day-c.refusalWindowStart>180){c.refusalWindowStart=s.day;c.refusalCount=0}
+ c.refusalCount=(c.refusalCount||0)+1;
+ let n=c.refusalCount;
+ if(n===1){c.refusalWarning=1;logNews(`${f.name} получил предупреждение от ${c.org} за отказ от предложенного боя.`,"CONTRACT");save();toast("Предупреждение: лига недовольна отказом от боя");return}
+ if(n===2){c.refusalWarning=2;logNews(`${f.name} получил последнее предупреждение от ${c.org}: слишком много отказов от боёв.`,"CONTRACT");save();toast("Последнее предупреждение: следующий частый отказ может привести к увольнению");return}
+ let oldOrg=c.org;f.formerContractOrg=oldOrg;f.contract=null;f.leagueFired=true;f.leagueFiredDay=s.day;f.currentFightLeague=null;logNews(`${oldOrg} расторг контракт с ${f.name} из-за неоднократных отказов от боёв.`,"CONTRACT");save();toast(`${oldOrg}: контракт расторгнут из-за отказов от боёв`);
+}
+function acceptFightDisciplineBonus(f){
+ if(!f?.contract)return;
+ let c=f.contract;
+ if((c.refusalCount||0)>0)c.refusalCount=Math.max(0,c.refusalCount-1);
+ if(c.refusalCount===0)c.refusalWarning=0;
+}
+function rankingAccess(f){
+ let p=refusalPenalty(f),base=15-Math.floor(p*20);
+ return Math.max(6,base);
+}
+function titleAccess(f){return refusalPenalty(f)<.36;}
 function _matchmakeHeavy(){
  let f=currentF();
  if(!f){toast("Выбери бойца");return}
@@ -1240,8 +1267,8 @@ function _matchmakeHeavy(){
    }).sort((a,b)=>Math.abs(ovr(a)-ovr(f))-Math.abs(ovr(b)-ovr(f)));
    // Realistic availability: usually only 1-2 viable offers.
    opps.slice(0,1).forEach(o=>{
-     let rp=getPos(o), ranked=(fp>0&&fp<=15&&rp>0&&rp<=15);
-     let titleFight=isChamp&&rp<=3;
+     let rp=getPos(o), ranked=(fp>0&&fp<=rankingAccess(f)&&rp>0&&rp<=15);
+     let titleFight=isChamp&&titleAccess(f)&&fp<=5&&rp<=3;
      let fiveRounds=(titleFight||((ranked&&fp<=5&&rp<=5&&org.level>=8)));
      let terms=contractTerms(f,org);
      rows.push({titleFight:isTitleFightPair(f,o,org.name),opponent:o,org:org.name,rounds:fiveRounds?5:3,date:s.day+rand(14,42),purse:Math.max(terms.purse,Math.round(terms.purse*.45)),rank:rp,event:choice(["Fight Night","Championship Series","Main Event","Fight Night Series"])+" #"+rand(10,99),ranked,type:titleFight?"ТИТУЛЬНЫЙ БОЙ":(ranked?"РЕЙТИНГОВЫЙ БОЙ":"ОБЫЧНЫЙ БОЙ"),titleFight});
@@ -1259,9 +1286,10 @@ function _matchmakeHeavy(){
  document.getElementById("sheet").innerHTML=`<div class="eyebrow">${contracted?"КОНТРАК • "+f.contract.org:"РЫНОК БОЁВ • СВОБОДНЫЙ БОЕЦ"}</div>
  <h2>${contracted?"Бои в рамках контракта":"Предложения из разных лиг"}</h2>
  <div class="muted">${f.flag||"🌍"} ${f.name} • ${f.weight} • OVR ${ovr(f)} • ${contracted?`${f.contract.fightsLeft}/${f.contract.length} боя по контракту`:'свободен от лиги'}</div>
- <section class="panel"><div class="notice-strip">${contracted?`У бойца действует контракт с ${f.contract.org}. Другие лиги здесь не участвуют.`:`Это одноразовые бои. После каждого боя лига отдельно решает, предлагать ли долгий контракт.`}</div></section>
- <div class="list" style="margin-top:11px">${candidates.map((c,i)=>`<div class="scout"><div class="fighter-top"><div class="scout-face">${emoji(c.opponent.style)}</div><div class="fighter-info"><div class="fighter-name">${c.opponent.flag||"🌍"} ${c.opponent.name}</div><div class="fighter-sub">${c.opponent.country} • ${c.opponent.style} • ${rec(c.opponent)} • #${c.rank||"—"}</div></div><div class="score">${ovr(c.opponent)}</div></div><div class="tags"><span class="tag">${c.org}</span><span class="tag">${c.type}</span><span class="tag">${c.rounds} раундов</span><span class="tag">${dateLabel(c.date)}</span><span class="tag">+$${c.purse.toLocaleString("ru-RU")}</span></div><div class="scout-actions"><button data-mmprofile="${i}">Профиль</button><button class="primary" data-accept="${i}">Рассмотреть бой</button></div></div>`).join("")}</div><div class="sheet-actions"><button data-close>Закрыть</button></div>`;
+ <section class="panel"><div class="notice-strip">${contracted?`У бойца действует контракт с ${f.contract.org}. Другие лиги здесь не участвуют.${(f.contract.refusalCount||0)>0?` Отказы: ${f.contract.refusalCount}/2 до риска увольнения.`:""}`:`Это одноразовые бои. После каждого боя лига отдельно решает, предлагать ли долгий контракт.`}</div></section>
+ <div class="list" style="margin-top:11px">${candidates.map((c,i)=>`<div class="scout"><div class="fighter-top"><div class="scout-face">${emoji(c.opponent.style)}</div><div class="fighter-info"><div class="fighter-name">${c.opponent.flag||"🌍"} ${c.opponent.name}</div><div class="fighter-sub">${c.opponent.country} • ${c.opponent.style} • ${rec(c.opponent)} • #${c.rank||"—"}</div></div><div class="score">${ovr(c.opponent)}</div></div><div class="tags"><span class="tag">${c.org}</span><span class="tag">${c.type}</span><span class="tag">${c.rounds} раундов</span><span class="tag">${dateLabel(c.date)}</span><span class="tag">+$${c.purse.toLocaleString("ru-RU")}</span></div><div class="scout-actions"><button data-mmprofile="${i}">Профиль</button><button class="primary" data-accept="${i}">Рассмотреть бой</button><button data-refuse="${i}">Отказать</button></div></div>`).join("")}</div><div class="sheet-actions"><button data-close>Закрыть</button></div>`;
  document.querySelectorAll("[data-mmprofile]").forEach(b=>b.onclick=()=>profile(candidates[+b.dataset.mmprofile].opponent,"match"));
+ document.querySelectorAll("[data-refuse]").forEach(b=>b.onclick=()=>{if(contracted)registerFightRefusal(f);matchmake()});
  document.querySelectorAll("[data-accept]").forEach(b=>b.onclick=()=>{
    let c=candidates[+b.dataset.accept],min=Math.max(500,Math.round(c.purse*.65)),max=Math.round(c.purse*1.6);
    document.getElementById("sheet").innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ О БОЕ</div><div class="title">${f.name} vs ${c.opponent.name}</div><div class="muted">${c.org} • ${c.event} • ${c.rounds} раундов • ${dateLabel(c.date)}</div><section class="panel"><div class="row"><span>Тип</span><b>${c.type}</b></div><div class="row"><span>Гонорар</span><b>$${c.purse.toLocaleString("ru-RU")}</b></div><div style="margin-top:9px"><label class="muted">Твой запрос, $</label><input id="fightSalary" class="input" type="number" min="${min}" max="${max}" value="${c.purse}"></div></section><div class="sheet-actions"><button data-back-mm>Назад</button><button class="primary" data-propose-fight>Предложить бой</button></div>`;
@@ -1271,6 +1299,7 @@ function _matchmakeHeavy(){
      let chance=Math.round(Math.max(15,Math.min(98,82-Math.max(0,purse-c.purse)/Math.max(1,c.purse)*70)));
      if(Math.random()*100>chance){toast("Лига отказалась от условий");return}
      f.fightResolved=false;f.nextFight={opponent:{...c.opponent},org:c.org,event:c.event,rounds:c.rounds,date:c.date,purse,rank:c.rank,ranked:!!c.ranked,type:c.type,titleFight:!!c.titleFight,venue:choice(["Las Vegas Arena","Abu Dhabi Arena","Moscow Arena","Las Vegas","New York","Riyadh Arena"]),card:c.rounds===5?"MAIN EVENT":choice(["PRELIMS","MAIN CARD","CO-MAIN EVENT"]),oneFight:!contracted};
+     acceptFightDisciplineBonus(f);
      f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campPerformance=f.campStyle==="peak"?8:(f.campStyle==="conditioning"?5:3);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;
      logNews(`${f.name} принял бой в ${c.org} против ${c.opponent.name}.`);save();closeModal();page("home");toast(`Бой согласован: ${c.org}`);
    };
