@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V37";
+  const BUILD="MMA_MANAGER_V38";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V37 • Road to Champion</title>
+<title>MMA Manager V38 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -522,7 +522,7 @@ if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC()
 }
 function updateRankings(){
  if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
- let pool=[...s.world,...s.fighters];
+ let seenRankIds=new Set();let pool=[...s.world,...s.fighters].filter(f=>{if(!f||f.id==null||seenRankIds.has(f.id))return false;seenRankIds.add(f.id);return true});
  for(let w of WEIGHTS){
    let arr=pool.filter(f=>f.weight===w).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
    s.rankings[w]=arr.map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));
@@ -531,7 +531,7 @@ function updateRankings(){
    let members=pool.filter(f=>f.org===o.name);
    s.rankingsByOrg[o.name]={};
    for(let w of WEIGHTS){
-     let arr=members.filter(f=>f.weight===w).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
+     let championId=s.titles?.[o.name]?.[w];let arr=members.filter(f=>f.weight===w&&f.id!==championId).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
      s.rankingsByOrg[o.name][w]=arr.map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));
    }
    s.p4pByOrg[o.name]=members.slice().sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,15).map((f,i)=>({id:f.id,name:f.name,weight:f.weight,score:Math.round(f.rating||ovr(f)),rank:i+1}));
@@ -607,7 +607,7 @@ function titleHolder(org,w){ensureTitleState();return s.titles?.[org]?.[w]?findB
 function setTitle(org,w,f,reason=""){if(!f)return;ensureTitleState();const old=titleHolder(org,w);if(old&&old.id!==f.id){old.formerChampion={org,defenses:old.titleDefenses||0,reason};old.title=null;}s.titles[org][w]=f.id;f.title={org,weight:w};f.titleDefenses=f.titleDefenses||0;f.careerStage="Champion";}
 function clearTitle(org,w){ensureTitleState();const old=titleHolder(org,w);if(old&&old.title?.org===org&&old.title?.weight===w)old.title=null;if(s.titles?.[org])delete s.titles[org][w];}
 function orgRank(f,org){if(!f)return 999;const arr=s.rankingsByOrg?.[org]?.[f.weight]||[];const x=arr.find(r=>r.id===f.id);return x?.rank||999;}
-function isTitleFightPair(f,o,org){if(!f||!o||!org)return false;const holder=titleHolder(org,f.weight);if(holder&&(holder.id===f.id||holder.id===o.id))return true;if(!holder){const rf=orgRank(f,org),ro=orgRank(o,org);return rf<=2&&ro<=2;}return false;}
+function isTitleFightPair(f,o,org){if(!f||!o||!org||f.id===o.id||f.weight!==o.weight)return false;const holder=titleHolder(org,f.weight);if(holder&&(holder.id===f.id||holder.id===o.id))return true;if(!holder){const rf=orgRank(f,org),ro=orgRank(o,org);return rf<=2&&ro<=2;}return false;}
 function championshipLabel(f){return f?.title?`🏆 ЧЕМПИОН • ${f.title.org}`:"";}
 function injuryRisk(f){
  let load=f.fatigue||0,age=f.age||27;
@@ -1100,7 +1100,7 @@ function negotiate(f){
  document.querySelector("[data-sign-agency]").onclick=()=>{if(Math.random()*100>chance){toast("Боец отказался от сотрудничества");return}showAgencyContractTerms(f)};
 }
 function agencyContractCost(f,term){const base=Math.max(250,Math.round(180+ovr(f)*16+(f.popularity||10)*8));return{signing:Math.round(base*term*.85),renewal:Math.round(base*term*1.05),perFight:base}}
-function showAgencyContractTerms(f){const base=agencyContractCost(f,1).perFight;document.getElementById("sheet").innerHTML=`<div class="eyebrow">КОНТРАК С БОЙЦОМ</div><div class="title">${f.flag||"🌍"} ${f.name}</div><div class="muted">Срок ограничен количеством боёв. После окончания контракт нужно продлить за отдельную плату.</div><section class="panel"><div class="row"><span>Срок</span><select id="agencyTerm" style="width:130px"><option value="1">1 бой</option><option value="2">2 боя</option><option value="3" selected>3 боя</option><option value="4">4 боя</option><option value="5">5 боёв</option></select></div><div class="row"><span>Оплата сейчас</span><b id="agencyFee">$${Math.round(base*3*.85).toLocaleString("ru-RU")}</b></div><div class="row"><span>Стоимость продления</span><b id="agencyRenew">$${Math.round(base*3*1.05).toLocaleString("ru-RU")}</b></div></section><div class="sheet-actions"><button data-agency-back>Назад</button><button class="primary" data-agency-confirm>Подписать</button></div>`;const termEl=document.getElementById("agencyTerm"),feeEl=document.getElementById("agencyFee"),renewEl=document.getElementById("agencyRenew");termEl.onchange=()=>{let c=agencyContractCost(f,+termEl.value);feeEl.textContent="$"+c.signing.toLocaleString("ru-RU");renewEl.textContent="$"+c.renewal.toLocaleString("ru-RU")};document.querySelector("[data-agency-back]").onclick=()=>negotiate(f);document.querySelector("[data-agency-confirm]").onclick=()=>{let term=+termEl.value,c=agencyContractCost(f,term);if(s.money<c.signing){toast(`Нужно $${c.signing.toLocaleString("ru-RU")}`);return}s.money-=c.signing;f.agencyContract={length:term,fightsLeft:term,fee:c.signing,renewalFee:c.renewal,started:s.day};f.agencyManaged=true;f.agencySince=f.agencySince||s.day;save();closeModal();page("roster");toast(`${f.name}: контракт на ${term} ${term===1?"бой":"боя"} подписан`)}}
+function showAgencyContractTerms(f){const base=agencyContractCost(f,1).perFight;document.getElementById("sheet").innerHTML=`<div class="eyebrow">КОНТРАК С БОЙЦОМ</div><div class="title">${f.flag||"🌍"} ${f.name}</div><div class="muted">Срок ограничен количеством боёв. После окончания контракт нужно продлить за отдельную плату.</div><section class="panel"><div class="row"><span>Срок</span><select id="agencyTerm" style="width:130px"><option value="1">1 бой</option><option value="2">2 боя</option><option value="3" selected>3 боя</option><option value="4">4 боя</option><option value="5">5 боёв</option></select></div><div class="row"><span>Оплата сейчас</span><b id="agencyFee">$${Math.round(base*3*.85).toLocaleString("ru-RU")}</b></div><div class="row"><span>Стоимость продления</span><b id="agencyRenew">$${Math.round(base*3*1.05).toLocaleString("ru-RU")}</b></div></section><div class="sheet-actions"><button data-agency-back>Назад</button><button class="primary" data-agency-confirm>Подписать</button></div>`;const termEl=document.getElementById("agencyTerm"),feeEl=document.getElementById("agencyFee"),renewEl=document.getElementById("agencyRenew");termEl.onchange=()=>{let c=agencyContractCost(f,+termEl.value);feeEl.textContent="$"+c.signing.toLocaleString("ru-RU");renewEl.textContent="$"+c.renewal.toLocaleString("ru-RU")};document.querySelector("[data-agency-back]").onclick=()=>negotiate(f);document.querySelector("[data-agency-confirm]").onclick=()=>{let term=+termEl.value,c=agencyContractCost(f,term);if(s.money<c.signing){toast(`Нужно $${c.signing.toLocaleString("ru-RU")}`);return}s.money-=c.signing;f.agencyContract={length:term,fightsLeft:term,fee:c.signing,renewalFee:c.renewal,started:s.day};f.agencyManaged=true;f.agencySince=f.agencySince||s.day;f.leagueOffers=[];f.nextFight=null;if(!s.fighters.some(x=>x.id===f.id)){s.fighters.push(f)}s.world=(s.world||[]).filter(x=>x.id!==f.id);s.marketPool=(s.marketPool||[]).filter(id=>id!==f.id);s.selected=s.fighters.findIndex(x=>x.id===f.id);updateRankings();save();closeModal();page("roster");toast(`${f.name}: контракт на ${term} ${term===1?"бой":"боя"} подписан`)}}
 function renewAgencyContract(f){const term=Math.max(1,f.agencyContract?.length||3),c=agencyContractCost(f,term);if(s.money<c.renewal){toast(`Для продления нужно $${c.renewal.toLocaleString("ru-RU")}`);return}s.money-=c.renewal;f.agencyContract={length:term,fightsLeft:term,fee:c.renewal,renewalFee:Math.round(c.renewal*1.08),started:s.day};save();manageFighter(f);toast(`Контракт ${f.name} продлён на ${term} боёв`)}
 function signFighter(f,negotiated=null){
  if(!f)return;
