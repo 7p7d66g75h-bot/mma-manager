@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V45";
+  const BUILD="MMA_MANAGER_V46";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -784,7 +784,7 @@ function home(){
 let f=currentF(),next=f?.nextFight;
 let upcoming=s.fighters.filter(x=>x.nextFight).sort((a,b)=>a.nextFight.date-b.nextFight.date).slice(0,4);
 document.getElementById("content").innerHTML=`<section class="panel"><div class="eyebrow">MANAGER DASHBOARD</div><div class="hero"><div class="avatar">👔</div><div class="hero-main"><h2>${s.manager||"Менеджер"}</h2><div class="muted">${managerReputationText()}</div></div><div class="ovr">${s.managerRating}</div></div><div class="smallgrid"><div><small>Рейтинг</small><b>${s.managerRating}</b></div><div><small>Популярность</small><b>${s.managerPopularity}</b></div><div><small>Рекорд</small><b>${s.managerRecord.wins}-${s.managerRecord.losses}-${s.managerRecord.draws}</b></div><div><small>Репутация</small><b>${s.rep}</b></div></div></section>
-<section class="panel"><div class="section-head"><h3>Ближайшие события</h3><button data-page="calendar">Календарь</button></div>${upcoming.map((x)=>{let left=Math.max(0,x.nextFight.date-s.day);return `<div class="event" style="margin-bottom:8px"><div class="section-head"><b>${x.nextFight.event||x.nextFight.org}</b><span class="gold">${left===0?"СЕГОДНЯ":"через "+left+" дн."}</span></div><div><b>${x.name} vs ${x.nextFight.opponent.name}</b></div><div class="muted">${x.nextFight.org} • ${dateLabel(x.nextFight.date)} • ${x.nextFight.venue||"Арена"} • ${x.nextFight.card||"MAIN CARD"} • $${Number(x.nextFight.purse||0).toLocaleString("ru-RU")}</div><div class="actions"><button data-campfighter="${x.id}">Лагерь</button><button data-select="${s.fighters.indexOf(x)}">Профиль</button></div></div>`}).join("")||`<div class="muted">Нет назначенных боёв. Открой ростер и организуй первый бой.</div>`}</section>
+<section class="panel"><div class="section-head"><h3>Ближайшие события</h3><button data-page="calendar">Календарь</button></div>${upcoming.map((x)=>{let left=Math.max(0,x.nextFight.date-s.day);return `<div class="event" style="margin-bottom:8px"><div class="section-head"><b>${x.nextFight.event||x.nextFight.org}</b><span class="gold">${left===0?"СЕГОДНЯ":"через "+left+" дн."}</span></div><div><b>${x.name} vs ${x.nextFight.opponent.name}</b></div><div class="muted">${x.nextFight.org} • ${dateLabel(x.nextFight.date)} • ${x.nextFight.venue||"Арена"} • ${x.nextFight.card||"MAIN CARD"} • $${Number(x.nextFight.purse||0).toLocaleString("ru-RU")}</div><div class="actions"><button data-campfighter="${x.id}" onclick="event.stopPropagation();window._openCampById('${x.id}')">Лагерь</button><button data-select="${s.fighters.indexOf(x)}">Профиль</button></div></div>`}).join("")||`<div class="muted">Нет назначенных боёв. Открой ростер и организуй первый бой.</div>`}</section>
 <section class="panel"><div class="section-head"><h3>Команда</h3><span>${s.fighters.length}/12</span></div><div class="grid2">${s.fighters.slice(0,6).map((x,i)=>`<button data-select="${i}" style="text-align:left"><b>${x.flag||"🌍"} ${x.name}</b><br><span class="muted">${x.weight} • ${rec(x)}</span><br><span class="gold">OVR ${ovr(x)}</span></button>`).join("")}</div><div class="actions"><button data-page="roster">Весь ростер</button><button data-act="market">Рынок бойцов</button></div></section>
 <section class="panel"><div class="section-head"><h3>Последние новости</h3><span>Мир MMA</span></div>${s.news.slice(0,5).map(n=>`<div class="event"><b>${n.title}</b><div class="muted">${n.text}</div></div>`).join("")||`<div class="muted">Мировые новости появятся после первых событий.</div>`}</section>
 <section class="panel"><div class="actions"><button class="primary" data-page="rankings">🏆 Рейтинги</button><button data-page="league">🏟️ Лиги</button><button data-page="news">📰 Новости</button><button data-page="roster">🥊 Бои</button></div></section>`;
@@ -1293,6 +1293,8 @@ document.getElementById("content").innerHTML=`<section class="panel"><div class=
 <section class="panel"><div class="grid4"><div class="stat"><small>Усталость</small><b>${f.fatigue}</b></div><div class="stat"><small>Мораль</small><b>${f.morale}</b></div><div class="stat"><small>Очки</small><b>${s.trainingPoints}/7</b></div><div class="stat"><small>Стиль</small><b>${c.name}</b></div></div><div class="actions one"><button class="primary" data-page="calendar">Открыть календарь</button>${days<=0?`<button class="primary" data-act="fight">⚔️ ДЕНЬ БОЯ</button>`:""}</div></section>`;
 document.querySelectorAll("[data-campstyle]").forEach(b=>b.onclick=()=>{if((f.campWeek||1)>1){toast("Лагерь уже идёт — стиль фиксирован до боя");return}f.campStyle=b.dataset.campstyle;save();camp()});document.querySelector("[data-change-camp]")?.addEventListener("click",()=>{f.campStyle=null;save();camp()});bind()
 }
+window._openCampById=function(id){const f=findById(id);if(!f){toast("Боец не найден");return}const i=s.fighters.findIndex(x=>x.id===f.id);if(i<0){toast("Боец не в ростере");return}s.selected=i;save();camp()};
+
 function applyCampWeek(f){
 let c=CAMP_STYLES.find(x=>x.id===(f.campStyle||"balanced"))||CAMP_STYLES[0];
 if(c.id==="wrestling"){f.wrest=clamp(f.wrest+2);f.grap=clamp(f.grap+1);f.str=clamp(f.str-1)}
@@ -1536,7 +1538,7 @@ function roundEnd(){
 
  const overlay=document.createElement("div");
  overlay.id="fightResultOverlay";
- overlay.className="fight-result-overlay";
+ overlay.className="fight-result-overlay";overlay.style.zIndex="2147483645";overlay.style.pointerEvents="auto";overlay.style.touchAction="manipulation";
  overlay.innerHTML=`
    <div class="fight-result-card">
      <div class="fr-kicker">ОФИЦИАЛЬНЫЙ РЕЗУЛЬТАТ</div>
@@ -1561,10 +1563,9 @@ function roundEnd(){
    setTimeout(()=>document.getElementById("frWinner").classList.add("winner-show"),650);
  });
 
- document.getElementById("frStats").onclick=(e)=>{
-   e.preventDefault(); e.stopPropagation();
-   if(typeof openFightStatsOverlay==="function") openFightStatsOverlay();
- };
+ document.getElementById("frStats").onclick=(e)=>{e.preventDefault();e.stopPropagation();openFightStatsOverlay()};
+ overlay.addEventListener("click",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});
+ overlay.addEventListener("pointerup",e=>{const b=e.target.closest("#frStats");if(!b)return;e.preventDefault();e.stopPropagation();openFightStatsOverlay()},{capture:true});
  document.getElementById("frContinue").onclick=()=>{
    overlay.remove();
    closeModal();
@@ -1672,7 +1673,7 @@ raf=requestAnimationFrame(frame)
 function openFightStatsOverlay(){
  const old=document.getElementById("fightStatsOverlay"); if(old)old.remove();
  const ov=document.createElement("div");ov.id="fightStatsOverlay";
- ov.style.cssText="position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";
+ ov.style.cssText="position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";
  const rounds=a.rounds.map((x,i)=>{
    let sa=scorecards[i]?.a??10,sb=scorecards[i]?.b??10;
    return `<div class="row"><span>Раунд ${i+1}</span><b>${sa}-${sb}</b></div>`;
