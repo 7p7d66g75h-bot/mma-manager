@@ -12,37 +12,41 @@ jobs:
       - uses: actions/checkout@v4
       - name: Patch V37
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text()
-          old='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer}'
-          new='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'
-          if old not in s: raise SystemExit('button CSS marker not found')
-          s=s.replace(old,new,1)
-          old='function page(p){window._page=p;renderTop();document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[p]||home)()}'
-          new='''function renderChampionshipStrip(){\n  try{ensureTitleState();simulateVacantTitles();}catch(e){console.error("Championship init",e)}\n  let rows=ORGS.filter(o=>o.name!=="DWCS").flatMap(o=>WEIGHTS.map(w=>{let id=s.titles?.[o.name]?.[w],f=id?findById(id):null;return f?`<div class="row"><span><b>🏆 ${o.name}</b><br><span class="muted">${w}</span></span><b class="gold">${f.name}</b></div>`:``})).filter(Boolean);\n  let host=document.getElementById("content");\n  if(!host||!rows.length)return;\n  host.insertAdjacentHTML("afterbegin",`<section class="panel championship-panel"><div class="eyebrow">CHAMPIONSHIP</div><div class="title" style="font-size:21px">Действующие чемпионы</div>${rows.join("")}</section>`);\n}\nfunction page(p){window._page=p;renderTop();if(!s.setup){setup();return;}document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[p]||home)();renderChampionshipStrip()}'''
-          if old not in s: raise SystemExit('page marker not found')
-          s=s.replace(old,new,1)
-          old='if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();'
-          new='if(typeof ensureTitleState==="function")ensureTitleState();if(typeof simulateVacantTitles==="function")simulateVacantTitles();updateRankings();'
-          if old not in s: raise SystemExit('normalize title marker not found')
-          s=s.replace(old,new,1)
-          old='rebalanceUFC();\n s.worldPrepared=true;'
-          new='rebalanceUFC();\n ensureTitleState();\n simulateVacantTitles();\n updateRankings();\n s.worldPrepared=true;'
-          if old not in s: raise SystemExit('ensureWorld marker not found')
-          s=s.replace(old,new,1)
-          old='champ.wins++;loser.losses++;champ.title={org:org.name,weight:w};champ.titleDefenses=champ.titleDefenses||0;champ.careerStage="Champion";s.titles[org.name][w]=champ.id;'
-          new='champ.wins++;loser.losses++;delete loser.title;loser.titleDefenses=0;champ.title={org:org.name,weight:w};champ.titleDefenses=champ===f&&o.title?((champ.titleDefenses||0)+1):0;champ.careerStage="Champion";s.titles[org.name][w]=champ.id;'
-          if old not in s: raise SystemExit('title fight marker not found')
-          s=s.replace(old,new,1)
-          s=s.replace('const BUILD="MMA_MANAGER_V36";','const BUILD="MMA_MANAGER_V37";',1)
-          s=s.replace('<title>MMA Manager V36 • Road to Champion</title>','<title>MMA Manager V37 • Road to Champion</title>',1)
-          p.write_text(s)
-          PY
+          set -e
+          patch_index() {
+            python3 - <<'PY'
+            from pathlib import Path
+            p=Path('index.html')
+            s=p.read_text()
+            old='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer}'
+            new='button{border:1px solid #343b45;background:#20262e;color:#fff;border-radius:8px;min-height:46px;padding:11px 13px;font-weight:800;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'
+            if old in s: s=s.replace(old,new,1)
+            old='function page(p){window._page=p;renderTop();document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[p]||home)()}'
+            new='''function renderChampionshipStrip(){\n  try{ensureTitleState();simulateVacantTitles();}catch(e){console.error("Championship init",e)}\n  let rows=ORGS.filter(o=>o.name!=="DWCS").flatMap(o=>WEIGHTS.map(w=>{let id=s.titles?.[o.name]?.[w],f=id?findById(id):null;return f?`<div class="row"><span><b>🏆 ${o.name}</b><br><span class="muted">${w}</span></span><b class="gold">${f.name}</b></div>`:``})).filter(Boolean);\n  let host=document.getElementById("content");\n  if(!host||!rows.length)return;\n  host.insertAdjacentHTML("afterbegin",`<section class="panel championship-panel"><div class="eyebrow">CHAMPIONSHIP</div><div class="title" style="font-size:21px">Действующие чемпионы</div>${rows.join("")}</section>`);\n}\nfunction page(p){window._page=p;renderTop();if(!s.setup){setup();return;}document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p));({home:home,roster:roster,rankings:rankings,league:league,calendar:calendar,more:more,news:newsCenter}[p]||home)();renderChampionshipStrip()}'''
+            if old in s: s=s.replace(old,new,1)
+            old='if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")if(typeof ensureTitleState==="function")ensureTitleState();updateRankings();'
+            new='if(typeof ensureTitleState==="function")ensureTitleState();if(typeof simulateVacantTitles==="function")simulateVacantTitles();updateRankings();'
+            if old in s: s=s.replace(old,new,1)
+            old='rebalanceUFC();\n s.worldPrepared=true;'
+            new='rebalanceUFC();\n ensureTitleState();\n simulateVacantTitles();\n updateRankings();\n s.worldPrepared=true;'
+            if old in s: s=s.replace(old,new,1)
+            old='champ.wins++;loser.losses++;champ.title={org:org.name,weight:w};champ.titleDefenses=champ.titleDefenses||0;champ.careerStage="Champion";s.titles[org.name][w]=champ.id;'
+            new='champ.wins++;loser.losses++;delete loser.title;loser.titleDefenses=0;champ.title={org:org.name,weight:w};champ.titleDefenses=champ===f&&o.title?((champ.titleDefenses||0)+1):0;champ.careerStage="Champion";s.titles[org.name][w]=champ.id;'
+            if old in s: s=s.replace(old,new,1)
+            s=s.replace('const BUILD="MMA_MANAGER_V36";','const BUILD="MMA_MANAGER_V37";',1)
+            s=s.replace('<title>MMA Manager V36 • Road to Champion</title>','<title>MMA Manager V37 • Road to Champion</title>',1)
+            p.write_text(s)
+            PY
+          }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html
-          git commit -m 'V37: fix button responsiveness and championship display' || true
-          git pull --rebase origin main
-          git push
+          for i in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            patch_index
+            git add index.html
+            git commit -m 'V37: responsive buttons and championships' || true
+            if git push origin main; then exit 0; fi
+            sleep 2
+          done
+          exit 1
