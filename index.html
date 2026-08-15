@@ -1313,6 +1313,7 @@ function _matchmakeHeavy(){
      acceptFightDisciplineBonus(f);
      acceptFightDisciplineBonus(f);
      acceptFightDisciplineBonus(f);
+     acceptFightDisciplineBonus(f);
      f.preferredCampStyle=f.preferredCampStyle||null;f.campStyle=f.preferredCampStyle||defaultCampStyleForFighter(f);f.campPerformance=f.campStyle==="peak"?8:(f.campStyle==="conditioning"?5:3);f.campWeek=1;f.campSchedule={};f.currentFightLeague=c.org;
      logNews(`${f.name} принял бой в ${c.org} против ${c.opponent.name}.`);save();closeModal();page("home");toast(`Бой согласован: ${c.org}`);
    };
