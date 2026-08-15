@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V38";
+  const BUILD="MMA_MANAGER_V44";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V38 • Road to Champion</title>
+<title>MMA Manager V44 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -747,7 +747,7 @@ function render(){
         console.error("World build failed",e);
         toast("Мир ещё загружается");
       }
-    },50);
+    },1200);
   }
 }
 function setup(){
@@ -1218,13 +1218,13 @@ function matchmake(){
    // Contracted fighters can only be matched inside their contracted promotion.
    // The same opponent is blocked for the last three completed fights to avoid unrealistic rematches.
    // Rank progression: champions only face top contenders; ranked fighters prefer nearby ranks.
-   let fp=getPos(f);
+   const rankMap=new Map((s.rankingsByOrg?.[org.name]?.[f.weight]||[]).map(r=>[r.id,r.rank])); let fp=rankMap.get(f.id)||999;
    let isChamp=!!f.title;
    if(pool.length<3){
      // Do not rescan the full world here; the indexed pool is authoritative.
    }
    let opps=pool.filter(x=>{
-     let rp=getPos(x);
+     let rp=rankMap.get(x.id)||999;
      if(isChamp) return rp>0&&rp<=8;
      if(fp>0&&fp<=15) return rp>0&&Math.abs(rp-fp)<=8;
      return Math.abs(ovr(x)-ovr(f))<=12;
@@ -1555,7 +1555,8 @@ function roundEnd(){
    setTimeout(()=>document.getElementById("frWinner").classList.add("winner-show"),650);
  });
 
- document.getElementById("frStats").onclick=()=>{
+ document.getElementById("frStats").onclick=(e)=>{
+   e.preventDefault(); e.stopPropagation();
    if(typeof openFightStatsOverlay==="function") openFightStatsOverlay();
  };
  document.getElementById("frContinue").onclick=()=>{
@@ -1665,7 +1666,7 @@ raf=requestAnimationFrame(frame)
 function openFightStatsOverlay(){
  const old=document.getElementById("fightStatsOverlay"); if(old)old.remove();
  const ov=document.createElement("div");ov.id="fightStatsOverlay";
- ov.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);padding:18px;overflow:auto";
+ ov.style.cssText="position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.90);padding:18px;overflow:auto;pointer-events:auto;touch-action:manipulation";
  const rounds=a.rounds.map((x,i)=>{
    let sa=scorecards[i]?.a??10,sb=scorecards[i]?.b??10;
    return `<div class="row"><span>Раунд ${i+1}</span><b>${sa}-${sb}</b></div>`;
