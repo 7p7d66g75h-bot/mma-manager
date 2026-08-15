@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V53_PRESERVE_MECHANICS";
+  const BUILD="MMA_MANAGER_V59_STABLE_FIX";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -22,7 +22,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="MMA Manager">
 <meta name="theme-color" content="#07090c">
-<title>MMA Manager V53 • Road to Champion</title>
+<title>MMA Manager V59 • Road to Champion</title>
 <style>
 :root{--bg:#07090c;--panel:#101419;--panel2:#151a20;--panel3:#0b0e12;--line:#2a3038;--gold:#d5ae42;--gold2:#8e6d20;--muted:#8e98a4;--text:#f4f5f6;--green:#48a56d;--red:#c65d5d;--blue:#668fc5}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1842,97 +1842,75 @@ window.renderOffersOnly=function(f,offers){
 
 // Seed the current contract into history for old saves, then expose history on the fighter profile.
 function v52SyncCurrentContract(f){v52Ensure(f);if(f.contract){const exists=f.contractHistory.some(h=>h.status==='active'&&h.org===f.contract.org);if(!exists)v52AddHistory(f,{org:f.contract.org,status:'active',reason:'Действующий контракт',day:f.contract.started||s.day,date:dateLabel(f.contract.started||s.day),fights:f.contract.length,salary:f.contract.salary});}}
-function v52HistoryUI(){try{const sheet=document.getElementById('sheet');if(!sheet)return;const f=typeof currentF==='function'?currentF():null;if(!f)return;v52SyncCurrentContract(f);let box=document.getElementById('v52HistoryPanel');if(box)box.remove();const entries=f.contractHistory||[];box=document.createElement('section');box.id='v52HistoryPanel';box.className='panel v52-history';box.innerHTML=`<div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div>${entries.length?entries.map(h=>{const cls=h.status==='fired'?'v52-fired':h.status==='ended'?'v52-ended':h.status==='left'?'v52-left':'v52-active';const label=h.status==='fired'?'УВОЛЕН':h.status==='ended'?'ЗАВЕРШЁН':h.status==='left'?'УШЁЛ САМ':h.status==='warning'?'ПРЕДУПРЕЖДЕНИЕ':h.status==='final_warning'?'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ':'ДЕЙСТВУЕТ';return`<div class="v52-history-entry"><b>${h.org||'Лига'} — <span class="${cls}">${label}</span></b><small>${h.date||dateLabel(h.day||s.day)}${h.reason?' • '+h.reason:''}</small>${h.fights?`<small>Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</small>`:''}</div>`}).join(''):'<div class="muted">Контрактов пока нет.</div>'}`;const anchor=[...sheet.querySelectorAll('.panel')].find(x=>(x.innerText||'').includes('Контракт'));if(anchor)anchor.after(box);else sheet.appendChild(box);}catch(e){console.warn('V52 history UI',e)}}
+function v52HistoryUI(){try{
+  const sheet=document.getElementById('sheet');
+  if(!sheet)return;
+  const old=sheet.querySelector('#v52HistoryPanel');
+  if(old)old.remove();
+  const eye=(sheet.querySelector('.eyebrow')?.textContent||'').trim();
+  const isProfile=eye.startsWith('PROFESSIONAL FIGHTER')||eye.startsWith('FREE AGENT');
+  if(!isProfile)return;
+  const f=typeof currentF==='function'?currentF():null;
+  if(!f)return;
+  v52SyncCurrentContract(f);
+  const entries=f.contractHistory||[];
+  const box=document.createElement('section');
+  box.id='v52HistoryPanel';
+  box.className='panel v52-history';
+  box.style.cursor='pointer';
+  box.setAttribute('role','button');
+  box.setAttribute('tabindex','0');
+  box.innerHTML=`<div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div><div class="muted">Нажми, чтобы посмотреть историю контрактов бойца.</div>`;
+  const anchor=[...sheet.querySelectorAll('.panel')].find(x=>(x.innerText||'').includes('Контракт'));
+  if(anchor)anchor.after(box);else sheet.appendChild(box);
+  const open=()=>{
+    const oldOverlay=document.getElementById('v52HistoryOverlay');if(oldOverlay)oldOverlay.remove();
+    const ov=document.createElement('div');ov.id='v52HistoryOverlay';ov.className='v52-contract-overlay';
+    ov.innerHTML=`<div class="v52-contract-card"><div class="section-head"><h3>История контрактов</h3><button id="v52HistoryClose">×</button></div><div class="muted" style="margin-bottom:12px">${f.name} • ${f.weight} • ${f.country||''}</div>${entries.length?entries.map(h=>{const label=h.status==='fired'?'УВОЛЕН':h.status==='ended'?'ЗАВЕРШЁН':h.status==='left'?'УШЁЛ САМ':h.status==='warning'?'ПРЕДУПРЕЖДЕНИЕ':h.status==='final_warning'?'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ':'ДЕЙСТВУЕТ';return `<div class="v52-history-entry"><b>${h.org||'Лига'} — ${label}</b><small>${h.date||dateLabel(h.day||s.day)}${h.reason?' • '+h.reason:''}</small>${h.fights?`<small>Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</small>`:''}</div>`}).join(''):'<div class="muted">Контрактов пока нет.</div>'}<div class="sheet-actions" style="position:static;margin-top:14px"><button id="v52HistoryClose2" class="primary">Закрыть</button></div></div>`;
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.querySelector('#v52HistoryClose').onclick=close;
+    ov.querySelector('#v52HistoryClose2').onclick=close;
+    ov.addEventListener('click',e=>{if(e.target===ov)close()});
+  };
+  box.onclick=open;
+  box.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')open()};
+}catch(e){console.warn('V59 history UI',e)}}
 new MutationObserver(()=>setTimeout(v52HistoryUI,0)).observe(document.body,{childList:true,subtree:true});setTimeout(v52HistoryUI,300);
 window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 })();
 </script>
-<script id="MMA_MANAGER_V53_PRESERVE_MECHANICS">
+
+<script id="MMA_MANAGER_V59_FIX">
 (function(){'use strict';
-  // V53 is additive: old mechanics remain authoritative unless explicitly corrected below.
-  const OLD_CONTRACT_TERMS = typeof contractTermsLegacy==='function' ? contractTermsLegacy : null;
-  window.contractTerms = function(f,org){
-    let base=OLD_CONTRACT_TERMS ? OLD_CONTRACT_TERMS(f,org) : {salary:0,purse:0};
-    base=base||{};
-    if(org && org.name==='UFC'){
-      // UFC's established base contract must never collapse to regional-level money.
-      const ufcBase=150000;
-      const wins=Number(f?.wins||0);
-      const experienceBonus=Math.min(50000,Math.max(0,wins-3)*10000);
-      const salary=ufcBase+experienceBonus;
-      base.salary=Math.max(Number(base.salary||0),salary);
-      base.purse=Math.max(Number(base.purse||0),salary);
-    }
-    return base;
-  };
-
-  function esc(v){return String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}
-  function current(){try{return typeof currentF==='function'?currentF():null}catch(e){return null}}
-  function ensure(f){if(!f)return;f.contractHistory=Array.isArray(f.contractHistory)?f.contractHistory:[]}
-  function addHistory(f,status,reason,extra={}){ensure(f);f.contractHistory.unshift(Object.assign({org:f.contract?.org||f.formerContractOrg||f.currentFightLeague||'—',status,reason,day:s.day,date:typeof dateLabel==='function'?dateLabel(s.day):`День ${s.day}`},extra));f.contractHistory=f.contractHistory.slice(0,50)}
-
-  function terminateContract(f){
+  function current59(){return typeof currentF==='function'?currentF():null}
+  function addHistory59(f,status,reason,extra){
+    if(!f)return;
+    f.contractHistory=Array.isArray(f.contractHistory)?f.contractHistory:[];
+    f.contractHistory.unshift(Object.assign({org:f.contract?.org||f.formerContractOrg||'—',status,reason,day:s.day,date:dateLabel(s.day)},extra||{}));
+    f.contractHistory=f.contractHistory.slice(0,50);
+  }
+  function terminate59(f){
     if(!f?.contract){toast('У бойца нет действующего контракта');return}
-    const org=f.contract.org;
-    const left=f.contract.fightsLeft ?? f.contract.length ?? 0;
-    if(!confirm(`Расторгнуть контракт ${f.name} с ${org}?\n\nОставшиеся бои: ${left}.`))return;
-    addHistory(f,'left','Контракт расторгнут менеджером',{fightsLeft:left});
-    f.formerContractOrg=org;
-    f.formerContractReason='Контракт расторгнут менеджером';
-    f.contract=null;
-    f.leagueOffers=[];
-    f.matchmakeSeen=[];
-    f.currentFightLeague=null;
-    save();
-    if(typeof updateRankings==='function')updateRankings();
-    renderDock();
-    if(typeof manageFighter==='function')manageFighter(f); else if(typeof page==='function')page('roster');
-    toast(`${f.name}: контракт с ${org} расторгнут`);
+    const org=f.contract.org,left=f.contract.fightsLeft??f.contract.length??0;
+    const ov=document.createElement('div');ov.className='v52-contract-overlay';ov.id='v59TerminateOverlay';
+    ov.innerHTML=`<div class="v52-contract-card"><div style="font-size:46px;text-align:center">⚠️</div><div class="eyebrow" style="text-align:center">РАСТОРЖЕНИЕ КОНТРАКТА</div><div class="v51-warning-title">Расторгнуть контракт?</div><div class="v51-warning-sub">${f.name} • ${org} • осталось ${left} боёв.</div><div class="sheet-actions" style="position:static;margin-top:18px"><button id="v59TermBack">Отмена</button><button id="v59TermYes" class="red">Да, расторгнуть</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#v59TermBack').onclick=()=>ov.remove();
+    ov.querySelector('#v59TermYes').onclick=()=>{addHistory59(f,'left','Контракт расторгнут менеджером',{fightsLeft:left});f.formerContractOrg=org;f.formerContractReason='Контракт расторгнут менеджером';f.contract=null;f.leagueOffers=[];f.currentFightLeague=null;save();ov.remove();profile(f,'roster');toast(`${f.name}: контракт с ${org} расторгнут`)};
   }
-
-  function renderHistory(f){
-    ensure(f);
-    const entries=f.contractHistory||[];
-    const old=document.getElementById('v53HistoryPanel');if(old)old.remove();
-    const panel=document.createElement('div');panel.id='v53HistoryPanel';panel.className='v53-history-panel';
-    panel.innerHTML=`<div class="v53-history-sheet"><div class="section-head"><h3>История контрактов</h3><span>${entries.length}</span></div>${entries.length?entries.map(h=>{const label={active:'ПОДПИСАН',ended:'ЗАВЕРШЁН',left:'РАСТОРГНУТ',fired:'УВОЛЕН',warning:'ПРЕДУПРЕЖДЕНИЕ',final_warning:'ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ'}[h.status]||String(h.status||'СОБЫТИЕ').toUpperCase();return `<div class="v53-history-entry"><b>${esc(h.org||'Лига')} — ${label}</b><div class="muted">${esc(h.date||('День '+h.day))}${h.reason?' • '+esc(h.reason):''}</div>${h.fights?`<div class="muted">Контракт: ${h.fights} боёв • $${Number(h.salary||0).toLocaleString('ru-RU')} / бой</div>`:''}</div>`}).join(''):'<div class="muted">История контрактов пока пуста.</div>'}<div class="sheet-actions"><button id="v53HistoryClose">Закрыть</button></div></div>`;
-    document.body.appendChild(panel);panel.classList.add('open');panel.addEventListener('click',e=>{if(e.target===panel||e.target.closest('#v53HistoryClose'))panel.remove()});
-  }
-
-  function renderDock(){
-    let dock=document.getElementById('v53ContractDock');
-    if(!dock){dock=document.createElement('div');dock.id='v53ContractDock';dock.className='v53-contract-dock';document.body.appendChild(dock)}
-    const f=current();
-    if(!f?.contract){dock.classList.remove('show');dock.innerHTML='';return}
-    const c=f.contract;const left=c.fightsLeft??c.length??0;
-    dock.innerHTML=`<div class="v53-contract-inner"><div class="v53-contract-main"><b>КОНТРАК • ${esc(c.org)}</b><span>${esc(f.name)} • осталось ${left} ${left===1?'бой':'боя'} • $${Number(c.salary||0).toLocaleString('ru-RU')} / бой</span></div><button data-v53-history>История</button><button class="red" data-v53-terminate>Расторгнуть</button></div>`;
-    dock.classList.add('show');
-  }
-
-  // Fix the existing camp-change action without removing the original camp system.
   document.addEventListener('click',function(e){
+    const term=e.target.closest?.('[data-terminate-contract]');
+    if(term){e.preventDefault();e.stopImmediatePropagation();terminate59(current59());return}
     const change=e.target.closest?.('[data-change-camp]');
-    if(change){
-      e.preventDefault();e.stopImmediatePropagation();
-      const f=current();if(!f)return;
-      f.campChanging=true;save();if(typeof camp==='function')camp();return;
-    }
+    if(change){e.preventDefault();e.stopImmediatePropagation();const f=current59();if(!f)return;f.campChanging=true;f.campStyle=null;save();camp();return}
     const style=e.target.closest?.('[data-campstyle]');
-    if(style){
-      e.preventDefault();e.stopImmediatePropagation();
-      const f=current(),id=style.dataset.campstyle;if(!f||!id)return;
-      f.campStyle=id;f.preferredCampStyle=id;f.campChanging=false;save();
-      if(typeof camp==='function')camp();
-    }
-    if(e.target.closest?.('[data-v53-history]')){e.preventDefault();e.stopImmediatePropagation();const f=current();if(f)renderHistory(f)}
-    if(e.target.closest?.('[data-v53-terminate]')){e.preventDefault();e.stopImmediatePropagation();terminateContract(current())}
+    if(style){e.preventDefault();e.stopImmediatePropagation();const f=current59();if(!f)return;f.campStyle=style.dataset.campstyle;f.preferredCampStyle=style.dataset.campstyle;f.campChanging=false;save();camp();return}
   },true);
-
-  // Make every newly rendered screen reflect the current fighter's contract.
-  new MutationObserver(()=>{try{renderDock()}catch(e){}}).observe(document.body,{childList:true,subtree:true});
-  setTimeout(renderDock,250);
-  window.V53PreserveMechanics={terminateContract,renderHistory,renderDock};
+  const st=document.createElement('style');st.textContent='.contract-terminate{display:block!important;width:100%;margin-top:9px}.v52-history{cursor:pointer}';document.head.appendChild(st);
+  window.MMA_MANAGER_V59_FIX=true;
 })();
 </script>
+
 </body>
 </html>
