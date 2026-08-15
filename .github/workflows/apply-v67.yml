@@ -1,0 +1,37 @@
+name: Apply V67 refusal runtime fix
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'V67 refusal runtime/cache fix applied')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply V67
+        run: python3 scripts/fix_v67_refusal_runtime.py
+      - name: Validate V67
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          idx=Path('index.html').read_text(encoding='utf-8')
+          org=Path('scripts/organization_v64.js').read_text(encoding='utf-8')
+          assert 'organization_v64.js?v=67' in idx
+          assert 'MMA_MANAGER_V67_REFUSAL_RUNTIME' in idx
+          assert 'Math.floor(90+Math.random()*61)' in org
+          assert 'f.refusalOfferBatchSize=offers.length' in org
+          assert 'freePenalty(t)' in org
+          print('V67 validation OK')
+          PY
+      - name: Commit V67
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html scripts/organization_v64.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'V67 refusal runtime/cache fix applied'
+          git pull --rebase origin main
+          git push origin HEAD
