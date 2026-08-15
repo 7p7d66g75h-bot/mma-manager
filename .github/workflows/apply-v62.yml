@@ -1,0 +1,34 @@
+name: Apply V62 gameplay stability fix
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'Apply V62 gameplay fix')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply V62 patch
+        run: python3 scripts/fix_v62.py
+      - name: Validate V62
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert 'MMA_MANAGER_V62_FIX' in s
+          assert 'function v62Matchmake' in s
+          assert 'contractHistoryByOrg' in s
+          assert 'data-v62-accept' in s
+          print('V62 validation OK')
+          PY
+      - name: Commit patched game
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Apply V62 gameplay fix'
+          git push
