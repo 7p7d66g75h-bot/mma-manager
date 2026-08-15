@@ -522,7 +522,7 @@ if(s.worldPrepared&&Array.isArray(s.world)&&s.world.length>=4000){rebalanceUFC()
 }
 function updateRankings(){
  if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")if(typeof ensureNoLoop==="function")ensureNoLoop();s.rankings={};s.rankingsByOrg={};s.p4pByOrg={};
- let seenRankIds=new Set();let pool=[...s.world,...s.fighters].filter(f=>{if(!f||f.id==null||seenRankIds.has(f.id))return false;seenRankIds.add(f.id);return true});
+ const rosterIds=new Set((s.fighters||[]).map(f=>f&&f.id).filter(Boolean));s.world=(s.world||[]).filter(f=>!f||!rosterIds.has(f.id));let seenRankIds=new Set();let pool=[...s.world,...s.fighters].filter(f=>{if(!f||f.id==null||seenRankIds.has(f.id))return false;seenRankIds.add(f.id);return true});
  for(let w of WEIGHTS){
    let arr=pool.filter(f=>f.weight===w).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
    s.rankings[w]=arr.map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));
@@ -531,7 +531,7 @@ function updateRankings(){
    let members=pool.filter(f=>f.org===o.name);
    s.rankingsByOrg[o.name]={};
    for(let w of WEIGHTS){
-     let championId=s.titles?.[o.name]?.[w];let arr=members.filter(f=>f.weight===w&&f.id!==championId).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
+     let championId=s.titles?.[o.name]?.[w];let arr=members.filter(f=>f.weight===w&&f.id!==championId).filter((f,i,a)=>a.findIndex(x=>x.id===f.id)===i).sort((x,y)=>(y.rating||ovr(y))-(x.rating||ovr(x)));
      s.rankingsByOrg[o.name][w]=arr.map((f,i)=>({id:f.id,name:f.name,score:Math.round(f.rating||ovr(f)),rank:i+1}));
    }
    s.p4pByOrg[o.name]=members.slice().sort((a,b)=>(b.rating||ovr(b))-(a.rating||ovr(a))).slice(0,15).map((f,i)=>({id:f.id,name:f.name,weight:f.weight,score:Math.round(f.rating||ovr(f)),rank:i+1}));
@@ -689,6 +689,18 @@ function normalizeSave(){
  s.titles=s.titles||{};s.rivalries=s.rivalries||[];s.injuryReserve=s.injuryReserve||[];s.pressScore=s.pressScore||0;
  s.managerRating=s.managerRating||50;s.managerPopularity=s.managerPopularity||8;s.marketPool=s.marketPool||null;s.marketRefresh=s.marketRefresh||0;
  s.fighters=s.fighters||[];s.world=s.world||[];s.news=s.news||[];
+// V40 migration: any fighter already signed to the manager but stranded in the world pool is moved into the roster.
+const managed=new Set(s.fighters.map(f=>f&&f.id).filter(Boolean));
+const stranded=[];
+s.world=s.world.filter(f=>{
+  if(!f||!f.id)return true;
+  if(f.agencyManaged){ if(!managed.has(f.id)){stranded.push(f);managed.add(f.id)} return false; }
+  return true;
+});
+for(const f of stranded){ if(s.fighters.length<12) s.fighters.push(f); else s.world.push(f); }
+// Remove duplicate fighter IDs from the manager roster itself.
+const rosterSeen=new Set();
+s.fighters=s.fighters.filter(f=>{if(!f||f.id==null)return false;if(rosterSeen.has(f.id))return false;rosterSeen.add(f.id);return true;});
  if(s.world.length<600){let need=600-s.world.length;for(let i=0;i<need;i++)s.world.push(genFighter())}
  [...s.fighters,...s.world].forEach(f=>{
    let c=COUNTRIES.find(x=>x[0]===f.country);
