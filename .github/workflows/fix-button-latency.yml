@@ -33,9 +33,9 @@ jobs:
           from pathlib import Path
           import re
           s=Path('index.html').read_text(encoding='utf-8')
-          m=re.search(r'<script>(.*)</script>\s*</body>',s,re.S)
-          if not m: raise SystemExit('script block not found')
-          Path('/tmp/game.js').write_text(m.group(1),encoding='utf-8')
+          blocks=re.findall(r'<script(?:[^>]*)>(.*?)</script>',s,re.S)
+          if not blocks: raise SystemExit('script blocks not found')
+          Path('/tmp/game.js').write_text(blocks[-1],encoding='utf-8')
           PY
           node --check /tmp/game.js
       - name: Commit
