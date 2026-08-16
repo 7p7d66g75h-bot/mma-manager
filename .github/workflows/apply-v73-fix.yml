@@ -1,0 +1,42 @@
+name: Apply V73 bugfix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch index
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          # Remove the V72 profile-scroll watchdog that forcibly snaps scrollTop back every 80ms.
+          s,n=re.subn(r'// Profile scroll: remember the user\'s position and restore only when a profile sheet is unexpectedly rerendered\.\s*let profileScroll=0;function profileSheetActive\(\).*?setInterval\(\(\)=>\{try\{const sh=document\.getElementById\(\'sheet\'\);if\(sh&&profileSheetActive\(\)&&profileScroll>0&&Math\.abs\(sh\.scrollTop-profileScroll\)>8\)sh\.scrollTop=profileScroll\}catch\(e\)\{\}\},80\);', "// V73: native profile scrolling; no timer forcibly changes scrollTop.\nlet profileScroll=0;function profileSheetActive(){const sh=document.getElementById('sheet');return !!sh&&/Последние бои|Статистика побед|Контракт/.test(sh.textContent||'')}document.addEventListener('scroll',e=>{const sh=e.target;if(sh?.id==='sheet'&&profileSheetActive())profileScroll=sh.scrollTop},true);', s, count=1, flags=re.S)
+          if n==0:
+              # If formatting changed, use a narrower fallback between the two known comments.
+              start=s.find('// Profile scroll: remember')
+              end=s.find('// Market refresh:',start)
+              if start>=0 and end>start:
+                  replacement="// V73: native profile scrolling; no timer forcibly changes scrollTop.\n"
+                  replacement+="let profileScroll=0;function profileSheetActive(){const sh=document.getElementById('sheet');return !!sh&&/Последние бои|Статистика побед|Контракт/.test(sh.textContent||'')}document.addEventListener('scroll',e=>{const sh=e.target;if(sh?.id==='sheet'&&profileSheetActive())profileScroll=sh.scrollTop},true);\n"
+                  s=s[:start]+replacement+s[end:]
+          if '<script id="MMA_MANAGER_V73_BUGFIX"' not in s:
+              tag='<script id="MMA_MANAGER_V73_BUGFIX" src="scripts/v73_bugfix.js?v=73"></script>\n'
+              s=s.replace('</body>',tag+'</body>',1)
+          s=s.replace('const BUILD="MMA_MANAGER_V69_POSTFIGHT"','const BUILD="MMA_MANAGER_V73_BUGFIX"',1)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit patched index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "V73: fix profile momentum and round skipping"
+          git push
