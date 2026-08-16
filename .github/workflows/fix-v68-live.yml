@@ -24,7 +24,7 @@ jobs:
           assert 'const days=freePenalty(t)' in org
           idx=Path('index.html')
           s=idx.read_text(encoding='utf-8')
-          s=re.sub(r'scripts/organization_v64\\.js(?:\\?[^"\\']*)?', 'scripts/organization_v64.js?v=69', s)
+          s=re.sub("scripts/organization_v64\\.js(?:\\?[^\"']*)?", 'scripts/organization_v64.js?v=69', s)
           s=s.replace('MMA_MANAGER_V67_REFUSAL_RUNTIME','MMA_MANAGER_V69_POSTFIGHT')
           s=s.replace('MMA_MANAGER_V68_REFUSAL_RUNTIME','MMA_MANAGER_V69_POSTFIGHT')
           if 'scripts/organization_v64.js?v=69' not in s:
