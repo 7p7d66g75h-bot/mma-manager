@@ -1,0 +1,1 @@
+// Runtime validation marker for organization fight screen. No gameplay changes.
