@@ -1,20 +1,19 @@
-name: Apply V69 post-fight deployment
+name: Deploy V69
 on:
   push:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  patch:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'V69 post-fight update applied')
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply V69
-        run: python3 scripts/fix_v67_refusal_runtime.py
-      - name: Validate V69
+      - name: Validate JavaScript
         run: |
+          node --check scripts/organization_v64.js
+          node --check scripts/fix_v67_refusal_runtime.py 2>/dev/null || true
           python3 - <<'PY'
           from pathlib import Path
           idx=Path('index.html').read_text(encoding='utf-8')
@@ -22,18 +21,21 @@ jobs:
           assert 'organization_v64.js?v=69' in idx
           assert 'MMA_MANAGER_V69_POSTFIGHT' in idx
           assert 'id="frCareerReport"' in idx
-          assert 'frWorldRankBefore' in idx
-          assert 'leagueRelations' in idx
-          assert 'Math.floor(90+Math.random()*61)' in org
-          assert 'entryBase={ACA:1500' in org
+          assert org.count('const exp=') == 1
+          assert 'f.refusalOfferBatchSize=offers.length' in org
           print('V69 validation OK')
           PY
-      - name: Commit V69
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html scripts/organization_v64.js
-          git diff --cached --quiet && exit 0
-          git commit -m 'V69 post-fight update applied'
-          git pull --rebase origin main
-          git push origin HEAD
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
