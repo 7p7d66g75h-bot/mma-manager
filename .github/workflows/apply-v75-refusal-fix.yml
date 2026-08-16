@@ -1,0 +1,31 @@
+name: Apply V75 refusal fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch index
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script id="MMA_MANAGER_V75_REFUSAL_FIX" src="scripts/v75_refusal_fix.js?v=75"></script>\n'
+          if 'id="MMA_MANAGER_V75_REFUSAL_FIX"' not in s:
+              s=s.replace('</body>',tag+'</body>',1)
+          s=s.replace('const BUILD="MMA_MANAGER_V74_BUGFIX"','const BUILD="MMA_MANAGER_V75_REFUSAL_FIX"',1)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit patched index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "V75: first refusal suspension and fresh opponent pool"
+          git push
