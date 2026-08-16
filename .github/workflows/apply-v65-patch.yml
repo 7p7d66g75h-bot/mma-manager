@@ -1,38 +1,11 @@
-name: Apply V65 matchmaking patch
-
+name: Legacy V65 matchmaking patch (disabled)
 on:
-  push:
-    branches: [main]
-
+  workflow_dispatch:
 permissions:
-  contents: write
-
+  contents: read
 jobs:
-  patch:
+  disabled:
+    if: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Apply minimal V65 changes
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('scripts/organization_v64.js')
-          text = p.read_text(encoding='utf-8')
-          old = 'return rand(100,120)'
-          new = 'return rand(90,150)'
-          if old in text:
-              text = text.replace(old, new, 1)
-          old = 'const offers=generateOffers(f);'
-          new = 'const existing=(f.organizationOffers||[]).filter(x=>num(x.expires,0)>=day()&&!x.resolved);const offers=existing.length?existing:generateOffers(f);'
-          if old in text:
-              text = text.replace(old, new, 1)
-          p.write_text(text, encoding='utf-8')
-          PY
-      - name: Commit V65
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/organization_v64.js
-          git diff --cached --quiet && exit 0
-          git commit -m 'V65: fix refusal penalty and preserve offers on exit'
-          git push
+      - run: echo 'Legacy V65 patch disabled; current V69 pipeline owns live organization deployment.'
