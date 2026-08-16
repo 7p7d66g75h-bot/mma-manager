@@ -11,58 +11,50 @@
   const originalProfile=window.profile;
   const originalMarket=window.market;
 
-  // Profile navigation: preserve the real destination instead of relying on the old
-  // generic fallback to roster. This is especially important for opponent profiles.
   if(typeof originalProfile==='function'){
     window.profile=function(f,back){
       if(!f){notify('Боец не найден');return;}
-      window.__MM_V77_PROFILE_BACK=back||'roster';
       originalProfile(f,back||'roster');
-      const btn=document.querySelector('[data-back-profile]');
-      if(btn){
-        btn.onclick=function(e){
+
+      // IMPORTANT: use the game's real negotiate(f) action. V77 previously
+      // attempted to call nonexistent manageFighter(), so the button appeared
+      // to do nothing for an opponent already under contract.
+      const negotiateBtn=document.querySelector('[data-profile-negotiate]');
+      if(negotiateBtn){
+        negotiateBtn.onclick=function(e){
           e?.preventDefault?.();
-          e?.stopPropagation?.();
-          const b=window.__MM_V77_PROFILE_BACK;
-          safeClose();
-          if(b==='match'||b==='matchmake'){
-            try{matchmake();}catch(_){try{page('home')}catch(__){}}
-          }else if(b==='home'){
-            try{page('home')}catch(_){try{render()}catch(__){}}
-          }else if(b==='market'){
-            try{market();}catch(_){try{page('market')}catch(__){}}
-          }else if(b==='rankings'){
-            try{rankings();}catch(_){try{page('rankings')}catch(__){}}
-          }else if(b==='event'){
-            try{newsCenter();}catch(_){try{page('news')}catch(__){}}
-          }else if(b==='prefight'){
-            try{fight();}catch(_){try{page('home')}catch(__){}}
-          }else{
-            try{page('roster')}catch(_){try{render()}catch(__){}}
+          e?.stopImmediatePropagation?.();
+          try{
+            if(typeof negotiate==='function') negotiate(f);
+            else notify('Переговоры временно недоступны');
+          }catch(err){
+            try{console.error('V77 negotiate error',err)}catch(_){}
           }
         };
       }
 
-      // For a fighter already represented by the manager, "Вести дела" must open
-      // management rather than starting a second recruitment negotiation.
-      const manage=document.querySelector('[data-profile-negotiate]');
-      if(manage){
-        const st=getState();
-        const managed=!!st?.fighters?.some(x=>x&&x.id===f.id);
-        if(managed && typeof manageFighter==='function'){
-          manage.onclick=function(e){
-            e?.preventDefault?.();
-            e?.stopPropagation?.();
-            safeClose();
-            manageFighter(f);
-          };
-        }
+      const backBtn=document.querySelector('[data-back-profile]');
+      if(backBtn){
+        backBtn.onclick=function(e){
+          e?.preventDefault?.();
+          e?.stopImmediatePropagation?.();
+          safeClose();
+          try{
+            if(back==='match'||back==='matchmake') matchmake();
+            else if(back==='home') page('home');
+            else if(back==='market') market();
+            else if(back==='rankings') rankings();
+            else if(back==='event') newsCenter();
+            else if(back==='prefight') fight();
+            else page('roster');
+          }catch(err){try{render()}catch(_){}}
+        };
       }
     };
   }
 
-  // Opponent profile entry point: explicitly mark the source as HOME so its
-  // Back button can never fall through to the roster.
+  // Opponent profile opened from the fight-organization screen must return to
+  // matchmaking, not to Home. This keeps the selected fighter and opponent.
   try{
     const oldAct=window.act;
     if(typeof oldAct==='function'){
@@ -70,7 +62,7 @@
         if(a==='profileOpp'){
           const f=(typeof currentF==='function'?currentF():null);
           if(f?.nextFight?.opponent){
-            profile(f.nextFight.opponent,'home');
+            profile(f.nextFight.opponent,'match');
             return;
           }
         }
@@ -79,8 +71,8 @@
     }
   }catch(e){}
 
-  // Randomize the free-agent market while keeping the original market UI,
-  // affordability rules and contract mechanics intact.
+  // Randomize free-agent market while preserving the original UI and contract
+  // mechanics.
   if(typeof originalMarket==='function'){
     window.market=function(){
       const st=getState();
@@ -100,11 +92,10 @@
     };
   }
 
-  // Existing pages may have been rendered before this script overrides profile().
-  // Rebind opponent/profile buttons whenever they are present.
   function bindExisting(){
     document.querySelectorAll('[data-profile-rank-btn]').forEach(b=>{
-      if(b.__v77)return; b.__v77=true;
+      if(b.__v77)return;
+      b.__v77=true;
       b.addEventListener('click',function(e){
         e.stopImmediatePropagation();
         try{profile(findById(this.dataset.profileRankBtn),'rankings')}catch(_){ }
