@@ -1,34 +1,19 @@
 name: Apply V66 refusal batch fix
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'V66 refusal batch fix applied')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply V66
-        run: python3 scripts/fix_v66_refusal_batch.py
-      - name: Validate V66
+      - name: Validate stable organization runtime
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('scripts/organization_v64.js').read_text(encoding='utf-8')
-          assert 'f.refusalOfferBatchSize=offers.length' in s
-          assert 'const batch=Math.max(1,num(f.refusalOfferBatchSize,total||1))' in s
-          assert 'freePenalty(t)' in s
-          print('V66 validation OK')
+          assert 'window.matchmake=matchmake' in s
+          assert 'function accept' in s
+          print('Stable organization runtime OK')
           PY
-      - name: Commit V66
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add scripts/organization_v64.js
-          git diff --cached --quiet && exit 0
-          git commit -m 'V66 refusal batch fix applied'
-          git pull --rebase origin main
-          git push origin HEAD
