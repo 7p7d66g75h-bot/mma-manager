@@ -2,7 +2,7 @@
 <html lang="ru">
 <head><script>
 (function(){
-  const BUILD="MMA_MANAGER_V68_REFUSAL_RUNTIME";
+  const BUILD="MMA_MANAGER_V69_POSTFIGHT";
   document.documentElement.dataset.build=BUILD;
   try{
     if("serviceWorker" in navigator){
@@ -1555,6 +1555,13 @@ function roundEnd(){
  o.rating=(o.rating||ovr(o))+(win?-3:4);o.popularity=o.popularity??20;
  o.popularity=Math.max(1,Math.min(100,o.popularity+(win?-1:2)));
 
+ const frWorldRankBefore=typeof getPos==='function'?Number(getPos(f)||0):0;
+ const frDivRankBefore=(()=>{try{const a=s.rankingsByOrg?.[n.org]?.[f.weight]||[];return Number(a.find(x=>x.id===f.id)?.rank||0)}catch(e){return 0}})();
+ f.leagueRelations=f.leagueRelations||{};
+ const frRelBefore=Number(f.leagueRelations[n.org]??55);
+ const frRelDelta=win?(n.titleFight?6:4):-3;
+ f.leagueRelations[n.org]=Math.max(0,Math.min(100,frRelBefore+frRelDelta));
+ f.lastFightReport={day:s.day,org:n.org,win,method,earned:Math.round(win?n.purse:n.purse*.35),worldRankBefore:frWorldRankBefore,divRankBefore:frDivRankBefore,relationBefore:frRelBefore,relationAfter:f.leagueRelations[n.org]};
  logNews(`${f.name} ${win?"победил":"проиграл"} ${o.name} — ${method}${method==="Decision"||method==="Split Decision"?` (${scoreLines.join(", ")})`:""}.`);
  updateRankings();save();if(f.leagueOffersPending){f.leagueOffersPending=false;save();}
 
@@ -1584,12 +1591,35 @@ function roundEnd(){
      </div>
      <div id="frWinner" class="fr-winner">${winnerName}</div>
      <div class="fr-method">${method}</div>
+     <div id="frCareerReport" class="fr-career-report">
+       <div class="fr-report-head">ПОСЛЕДСТВИЯ БОЯ</div>
+       <div class="fr-report-grid">
+         <div><small>Рейтинг мира</small><b id="frRankChange">—</b></div>
+         <div><small>Рейтинг дивизиона</small><b id="frDivRankChange">—</b></div>
+         <div><small>Заработано</small><b id="frMoneyEarned">—</b></div>
+         <div><small>Отношение с лигой</small><b id="frLeagueRelation">—</b></div>
+       </div>
+       <div id="frConsequences" class="fr-report-note"></div>
+     </div>
      <div class="fr-actions">
        <button id="frStats" class="secondary">СТАТИСТИКА БОЯ</button>
        <button id="frContinue" class="primary">ПРОДОЛЖИТЬ</button>
      </div>
    </div>`;
  document.body.appendChild(overlay);
+ const frWorldRankAfter=typeof getPos==='function'?Number(getPos(f)||0):0;
+ const frDivRankAfter=(()=>{try{const a=s.rankingsByOrg?.[n.org]?.[f.weight]||[];return Number(a.find(x=>x.id===f.id)?.rank||0)}catch(e){return 0}})();
+ const frEarn=Math.round(win?n.purse:n.purse*.35);
+ const frWorldDelta=(frWorldRankBefore&&frWorldRankAfter)?(frWorldRankBefore-frWorldRankAfter):0;
+ const frDivDelta=(frDivRankBefore&&frDivRankAfter)?(frDivRankBefore-frDivRankAfter):0;
+ const frFmt=x=>Number(x||0).toLocaleString('ru-RU');
+ const frChange=(before,after,delta)=>before&&after?`#${before} → #${after} ${delta>0?'🟢 +'+delta:delta<0?'🔴 '+delta:'—'}`:'Без изменения';
+ const frRankEl=document.getElementById('frRankChange'); if(frRankEl)frRankEl.textContent=frChange(frWorldRankBefore,frWorldRankAfter,frWorldDelta);
+ const frDivEl=document.getElementById('frDivRankChange'); if(frDivEl)frDivEl.textContent=frChange(frDivRankBefore,frDivRankAfter,frDivDelta);
+ const frMoneyEl=document.getElementById('frMoneyEarned'); if(frMoneyEl)frMoneyEl.textContent='$'+frFmt(frEarn);
+ const frRelEl=document.getElementById('frLeagueRelation'); if(frRelEl)frRelEl.textContent=`${frRelBefore} → ${f.leagueRelations[n.org]} ${frRelDelta>0?'🟢 +'+frRelDelta:'🔴 '+frRelDelta}`;
+ const frNote=document.getElementById('frConsequences'); if(frNote){const bits=[];if(win&&frWorldDelta>0)bits.push(`Ты поднялся на ${frWorldDelta} позиц${frWorldDelta===1?'ию':'ий'} в мировом рейтинге.`);else if(!win&&frWorldDelta<0)bits.push(`Ты опустился на ${Math.abs(frWorldDelta)} позиц${Math.abs(frWorldDelta)===1?'ию':'ий'} в мировом рейтинге.`);if(n.titleFight&&win)bits.push('🏆 Победа в титульном бою усилила статус в лиге.');if(win&&f.winStreak>=3)bits.push(`🔥 Серия побед: ${f.winStreak}.`);frNote.textContent=bits.join(' ')||'Бой завершён. Позиция и условия карьеры обновлены.';}
+ save();
 
  // Show the announcement immediately; then animate emphasis without hiding the text.
  requestAnimationFrame(()=>{
@@ -2301,7 +2331,7 @@ window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 })();
 </script>
 
-<script src="scripts/organization_v64.js?v=68"></script>
+<script src="scripts/organization_v64.js?v=69"></script>
 <script id="MMA_MANAGER_V63_FIX">
 (function(){'use strict';
   // Restore the original matchmaking entry point. Do not invent a new matchmaking system here.
@@ -2911,7 +2941,7 @@ window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 })();
 </script>
 
-<script src="scripts/organization_v64.js?v=68"></script>
+<script src="scripts/organization_v64.js?v=69"></script>
 <script src="scripts/fight_contract_v1.js?v=1"></script>
 <script id="MMA_MANAGER_V63_FIX">
 (function(){'use strict';
@@ -3000,7 +3030,7 @@ window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 })();
 </script>
 
-<script src="scripts/organization_v64.js?v=68"></script>
+<script src="scripts/organization_v64.js?v=69"></script>
 <script id="MMA_MANAGER_V63_FIX">
 (function(){'use strict';
   // Restore the original matchmaking entry point. Do not invent a new matchmaking system here.
@@ -3088,7 +3118,7 @@ window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 })();
 </script>
 
-<script src="scripts/organization_v64.js?v=68"></script>
+<script src="scripts/organization_v64.js?v=69"></script>
 <script id="MMA_MANAGER_V63_FIX">
 (function(){'use strict';
   // Restore the original matchmaking entry point. Do not invent a new matchmaking system here.
@@ -3176,6 +3206,6 @@ window.MMA_MANAGER_V52_CONTRACT_FIX=true;
 })();
 </script>
 
-<script src="scripts/organization_v64.js"></script>
+<script src="scripts/organization_v64.js?v=69"></script>
 </body>
 </html>
