@@ -1,0 +1,36 @@
+name: V77 load navigation market fix
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Load V77 script in index
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="scripts/v77_navigation_market_fix.js?v=77"></script>'
+          if tag not in s:
+              marker='</body>'
+              if marker in s:
+                  s=s.replace(marker, tag+'\n'+marker, 1)
+              else:
+                  s += '\n'+tag+'\n'
+          p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --quiet -- index.html; then
+            echo 'V77 already loaded'
+          else
+            git add index.html
+            git commit -m 'V77: load navigation and market fix'
+            git push
+          fi
