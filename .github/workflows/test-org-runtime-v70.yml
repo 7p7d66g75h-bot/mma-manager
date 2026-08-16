@@ -1,0 +1,47 @@
+name: Validate organization runtime V70
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: node --check scripts/organization_v64.js
+      - name: Behavioral test
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const code = fs.readFileSync('scripts/organization_v64.js','utf8');
+          function fakeDOM(){
+            const noop=()=>{};
+            const el=()=>({classList:{add:noop,remove:noop},set innerHTML(v){this._html=v},get innerHTML(){return this._html||''},querySelector:()=>({onclick:null}),querySelectorAll:()=>[],addEventListener:noop});
+            return {getElementById:()=>el(),addEventListener:noop};
+          }
+          function buildContext(fighter,world){
+            const ORGS=[
+              {name:'ACA',short:'ACA',level:8,purse:40000,unlock:40},
+              {name:'KSW',short:'KSW',level:7,purse:30000,unlock:35},
+              {name:'LFA',short:'LFA',level:7,purse:22000,unlock:32},
+              {name:'Cage Warriors',short:'CW',level:6,purse:16000,unlock:25}
+            ];
+            const s={day:1,managerRating:60,world,fighters:[fighter],rankingsByOrg:{}};
+            for(const o of ORGS){s.rankingsByOrg[o.name]={Lightweight:world.filter(x=>x.org===o.name&&x.weight==='Lightweight').map((x,i)=>({id:x.id,rank:i+1}))};}
+            s.rankingsByOrg.ACA.Lightweight.push({id:fighter.id,rank:12});
+            return {console,window:{},document:fakeDOM(),s,ORGS,currentF:()=>fighter,rand:(a,b)=>a,choice:a=>a[0],ovr:f=>f.ovr||70,rec:f=>`${f.wins||0}-${f.losses||0}-${f.draws||0}`,dateLabel:d=>`Day ${d}`,toast:()=>{},save:()=>{},page:()=>{},closeModal:()=>{},profile:()=>{},defaultCampStyleForFighter:()=> 'balanced',contractTermsLegacy:()=>({purse:1500}),topLeagueEligible:()=>true,matchmake:()=>{}};
+          }
+          const baseWorld = [
+            {id:'a1',name:'ACA Opponent',country:'RU',weight:'Lightweight',style:'Wrestler',wins:4,losses:1,draws:0,ovr:69,org:'ACA',agencyManaged:false,retired:false,injury:null,nextFight:null},
+            {id:'k1',name:'KSW Opponent',country:'PL',weight:'Lightweight',style:'Striker',wins:6,losses:2,draws:0,ovr:72,org:'KSW',agencyManaged:false,retired:false,injury:null,nextFight:null},
+            {id:'l1',name:'LFA Opponent',country:'US',weight:'Lightweight',style:'Grappler',wins:5,losses:2,draws:0,ovr:71,org:'LFA',agencyManaged:false,retired:false,injury:null,nextFight:null}
+          ];
+          const free={id:'me',name:'My Fighter',weight:'Lightweight',wins:2,losses:0,draws:0,ovr:68,agencyManaged:true,contract:null,nextFight:null,history:[],reputationHooks:{accepted:0,refused:0,majorRefusals:0}};
+          let ctx=buildContext(free,baseWorld);vm.runInNewContext(code,ctx);let offers=ctx.window.__MMA_MANAGER_ORG_OPEN_V70(free);if(!(offers.length>=1&&offers.length<=5))throw new Error('Free-agent offers invalid: '+offers.length);if(!offers.every(x=>x.org!=='DWCS'))throw new Error('DWCS leaked into offers');
+          const contracted={...free,contract:{org:'ACA',length:3,fightsLeft:3},organizationOffers:[]};ctx=buildContext(contracted,baseWorld);vm.runInNewContext(code,ctx);offers=ctx.window.__MMA_MANAGER_ORG_OPEN_V70(contracted);if(!(offers.length>=1&&offers.length<=3))throw new Error('Contract offers invalid: '+offers.length);if(!offers.every(x=>x.org==='ACA'))throw new Error('Contract league restriction failed: '+JSON.stringify(offers.map(x=>x.org)));
+          console.log('V70 behavior OK: free='+offers.length+' contract='+offers.length);
+          NODE
