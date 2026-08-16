@@ -1,0 +1,36 @@
+name: Fix organize fight runtime
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: !contains(github.event.head_commit.message, 'Organize fight runtime bridge applied')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix global state access
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/organization_v64.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('window.s', "(typeof s!=='undefined'?s:window.s)")
+          s=s.replace('window.ORGS', "(typeof ORGS!=='undefined'?ORGS:window.ORGS)")
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate
+        run: |
+          node --check scripts/organization_v64.js
+          grep -q 'typeof s' scripts/organization_v64.js
+          grep -q 'window.matchmake=matchmake' scripts/organization_v64.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/organization_v64.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'Organize fight runtime bridge applied'
+          git pull --rebase origin main
+          git push origin HEAD
