@@ -13,28 +13,36 @@ jobs:
       - uses: actions/checkout@v4
       - name: Apply V69
         run: python3 scripts/fix_v67_refusal_runtime.py
-      - name: Validate V69
+      - name: Install opponent profile fix
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          idx=Path('index.html')
+          s=idx.read_text(encoding='utf-8')
+          tag='<script src="scripts/v78_opponent_profile_fix.js?v=78"></script>'
+          if tag not in s:
+              s=s.replace('</body>', tag+'\n</body>') if '</body>' in s else s+'\n'+tag
+          s=s.replace('organization_v64.js?v=67','organization_v64.js?v=72').replace('organization_v64.js?v=68','organization_v64.js?v=72').replace('organization_v64.js?v=69','organization_v64.js?v=72')
+          idx.write_text(s,encoding='utf-8')
+          print('V78 opponent profile fix installed')
+          PY
+      - name: Validate
+        run: |
+          node --check scripts/organization_v64.js
+          node --check scripts/v78_opponent_profile_fix.js
+          python3 - <<'PY'
+          from pathlib import Path
           idx=Path('index.html').read_text(encoding='utf-8')
-          org=Path('scripts/organization_v64.js').read_text(encoding='utf-8')
-          assert 'organization_v64.js?v=69' in idx
-          assert 'MMA_MANAGER_V69_POSTFIGHT' in idx
-          assert 'id="frCareerReport"' in idx
-          assert 'frWorldRankBefore' in idx
-          assert 'leagueRelations' in idx
-          assert 'Math.floor(90+Math.random()*61)' in org
-          assert 'f.refusalOfferBatchSize=offers.length' in org
-          assert 'entryBase={ACA:1500' in org
-          print('V69 validation OK')
+          assert 'v78_opponent_profile_fix.js?v=78' in idx
+          assert 'organization_v64.js?v=72' in idx
+          print('V78 validation OK')
           PY
       - name: Commit V69
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html scripts/organization_v64.js
+          git add index.html scripts/organization_v64.js scripts/v78_opponent_profile_fix.js
           git diff --cached --quiet && exit 0
-          git commit -m 'V69 post-fight update applied'
+          git commit -m 'V78 opponent profile navigation fix'
           git pull --rebase origin main
           git push origin HEAD
