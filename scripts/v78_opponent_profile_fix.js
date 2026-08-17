@@ -1,66 +1,15 @@
 (function(){
-  'use strict';
-  if(window.__MM_V78_FIX)return;
-  window.__MM_V78_FIX=true;
-
-  // The V77 patch incorrectly redirected "Вести дела" to a nonexistent
-  // manageFighter() function. The original profile action is negotiate(f),
-  // which is the correct action for both free agents and contracted opponents.
-  const originalProfile=window.profile;
-  if(typeof originalProfile==='function'){
-    window.profile=function(f,back){
-      if(!f)return;
-      originalProfile(f,back||'roster');
-      const ng=document.querySelector('[data-profile-negotiate]');
-      if(ng){
-        ng.onclick=function(e){
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          try{
-            if(typeof negotiate==='function') negotiate(f);
-          }catch(err){
-            try{console.error('V78 negotiate error',err)}catch(_){}
-          }
-        };
-      }
-      const backBtn=document.querySelector('[data-back-profile]');
-      if(backBtn){
-        backBtn.onclick=function(e){
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          try{closeModal()}catch(_){}
-          try{
-            if(back==='match'||back==='matchmake') matchmake();
-            else if(back==='market') market();
-            else if(back==='rankings') rankings();
-            else if(back==='event') newsCenter();
-            else if(back==='prefight') fight();
-            else if(back==='home') page('home');
-            else page('roster');
-          }catch(err){
-            try{render()}catch(_){}
-          }
-        };
-      }
-    };
-  }
-
-  // When the opponent profile is opened from the currently organized fight,
-  // return to matchmaking. "home" was wrong here and made the navigation feel
-  // broken.
-  try{
-    const oldAct=window.act;
-    if(typeof oldAct==='function'){
-      window.act=function(a){
-        if(a==='profileOpp'){
-          const f=typeof currentF==='function'?currentF():null;
-          if(f?.nextFight?.opponent){
-            profile(f.nextFight.opponent,'match');
-            return;
-          }
-        }
-        return oldAct.apply(this,arguments);
-      };
-    }
-  }catch(_){}
+'use strict';
+if(window.__MM_V78_FIX)return;window.__MM_V78_FIX=true;
+function st(){try{return typeof s!=='undefined'?s:window.s}catch(e){return window.s}}
+function cur(){try{return typeof currentF==='function'?currentF():null}catch(e){return null}}
+function close(){try{if(typeof closeModal==='function')closeModal();else document.getElementById('modal')?.classList.remove('open')}catch(e){}}
+function saveSafe(){try{if(typeof save==='function')save()}catch(e){}}
+function num(v,d){const n=Number(v);return Number.isFinite(n)?n:(d||0)}
+function remember(b){try{const f=cur(),i=Number(b.dataset.v70Profile),o=f?.organizationOffers?.[i];if(f&&o)window.__MM_V78_PROFILE_CONTEXT={fighter:f,offer:o}}catch(e){}}
+function button(label){const sh=document.getElementById('sheet');if(!sh)return null;return [...sh.querySelectorAll('button')].find(b=>(b.textContent||'').trim().toLowerCase()===label.toLowerCase())||null}
+function reopen(){const c=window.__MM_V78_PROFILE_CONTEXT;close();try{if(c?.fighter&&typeof window.__MMA_MANAGER_ORG_OPEN_V72==='function')window.__MMA_MANAGER_ORG_OPEN_V72(c.fighter)}catch(e){}}
+function negotiate(){const c=window.__MM_V78_PROFILE_CONTEXT,f=c?.fighter,o=c?.offer;if(!f||!o)return;const m=document.getElementById('modal'),sh=document.getElementById('sheet');if(!m||!sh)return;m.classList.add('open');const base=num(o.purse,1000),min=Math.max(250,Math.round(base*.65)),max=Math.max(min,Math.round(base*1.65));sh.innerHTML=`<div class="eyebrow">ПЕРЕГОВОРЫ ПО БОЮ</div><div class="title">${f.name} vs ${o.opponent.name}</div><div class="muted">${o.org} • ${o.type||'ОБЫЧНЫЙ БОЙ'} • ${o.rounds||3} раундов</div><section class="panel"><div class="row"><span>Предложение лиги</span><b>$${base.toLocaleString('ru-RU')}</b></div><div style="margin-top:9px"><label class="muted">Твой запрос, $</label><input id="v78Salary" class="input" type="number" min="${min}" max="${max}" value="${base}"></div></section><div class="sheet-actions"><button id="v78Back">Назад</button><button class="primary" id="v78Accept">Предложить бой</button></div>`;sh.querySelector('#v78Back').onclick=reopen;sh.querySelector('#v78Accept').onclick=function(){const purse=Math.max(min,Math.min(max,num(document.getElementById('v78Salary')?.value,base)));const chance=Math.max(15,Math.min(98,Math.round(88-Math.max(0,purse-base)/Math.max(1,base)*70)));if(Math.random()*100>chance){try{if(typeof toast==='function')toast('Лига не согласилась на эти финансовые условия.')}catch(e){}return}f.organizationOffers=[];f.leagueOffers=[];f.fightResolved=false;f.currentFightLeague=o.org;f.nextFight={opponent:{...o.opponent},org:o.org,event:o.event,rounds:o.rounds||3,date:o.date,purse,rank:o.opponentRank,ranked:!!o.ranked,type:o.type||'ОБЫЧНЫЙ БОЙ',titleFight:!!o.titleFight,venue:'Las Vegas Arena',card:(o.rounds||3)===5?'MAIN EVENT':'MAIN CARD',oneFight:!f.contract};f.campWeek=0;f.campSchedule={};f.campPerformance=3;saveSafe();close();if(typeof page==='function')page('home')}}
+function patch(){const c=window.__MM_V78_PROFILE_CONTEXT,sh=document.getElementById('sheet');if(!c||!sh||!sh.textContent.includes(c.offer.opponent.name))return;const back=button('Назад'),deal=button('Вести дела');if(back&&!back.__v78){back.__v78=true;back.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();reopen()}}if(deal&&!deal.__v78){deal.__v78=true;deal.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();negotiate()}}}
+document.addEventListener('click',e=>{const b=e.target.closest?.('[data-v70-profile]');if(b){remember(b);setTimeout(patch,0);setTimeout(patch,100)}},true);try{new MutationObserver(()=>patch()).observe(document.body,{childList:true,subtree:true})}catch(e){}setInterval(patch,200);
 })();
