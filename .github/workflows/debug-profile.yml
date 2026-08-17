@@ -1,0 +1,23 @@
+name: Debug profile source
+on:
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect profile
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          for needle in ['Вести дела','Назад','function profile','function negotiate','profileOpp']:
+            print('\n===',needle,'===')
+            p=0
+            c=0
+            while True:
+              p=s.find(needle,p)
+              if p<0 or c>=10: break
+              print(s[max(0,p-500):p+1000].replace('\n',' ')[:1600])
+              p+=len(needle); c+=1
+          PY
