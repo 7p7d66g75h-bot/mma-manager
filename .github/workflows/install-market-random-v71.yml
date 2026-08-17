@@ -1,0 +1,42 @@
+name: Install V71 market randomizer
+on:
+  push:
+    branches: [fix/market-random-v71]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install market runtime
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="scripts/market_random_v71.js?v=71"></script>'
+          if tag not in s:
+              marker='</body>'
+              if marker not in s:
+                  raise SystemExit('index.html has no </body>')
+              s=s.replace(marker,tag+'\n'+marker,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate syntax
+        run: node --check scripts/market_random_v71.js
+      - name: Validate install
+        run: |
+          grep -q 'scripts/market_random_v71.js?v=71' index.html
+          grep -q '__MM_MARKET_RANDOM_V71' scripts/market_random_v71.js
+          echo 'V71 market randomizer validation OK'
+      - name: Commit installation
+        run: |
+          git config user.name 'mma-manager-bot'
+          git config user.email 'mma-manager-bot@users.noreply.github.com'
+          git add index.html scripts/market_random_v71.js .github/workflows/install-market-random-v71.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'V71: install randomized fighter market [skip ci]'
+          git push origin HEAD:fix/market-random-v71
