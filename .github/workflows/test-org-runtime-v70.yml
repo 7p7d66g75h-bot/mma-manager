@@ -33,7 +33,7 @@ jobs:
             const s={day:1,managerRating:60,world,fighters:[fighter],rankingsByOrg:{}};
             for(const o of ORGS){s.rankingsByOrg[o.name]={Lightweight:world.filter(x=>x.org===o.name&&x.weight==='Lightweight').map((x,i)=>({id:x.id,rank:i+1}))};}
             s.rankingsByOrg.ACA.Lightweight.push({id:fighter.id,rank:12});
-            return {console,window:{},document:fakeDOM(),s,ORGS,currentF:()=>fighter,rand:(a,b)=>a,choice:a=>a[0],ovr:f=>f.ovr||70,rec:f=>`${f.wins||0}-${f.losses||0}-${f.draws||0}`,dateLabel:d=>`Day ${d}`,toast:()=>{},save:()=>{},page:()=>{},closeModal:()=>{},profile:()=>{},defaultCampStyleForFighter:()=> 'balanced',contractTermsLegacy:()=>({purse:1500}),topLeagueEligible:()=>true,matchmake:()=>{}};
+            return {console,window:{},document:fakeDOM(),setInterval:()=>0,clearInterval:()=>{},s,ORGS,currentF:()=>fighter,rand:(a,b)=>a,choice:a=>a[0],ovr:f=>f.ovr||70,rec:f=>`${f.wins||0}-${f.losses||0}-${f.draws||0}`,dateLabel:d=>`Day ${d}`,toast:()=>{},save:()=>{},page:()=>{},closeModal:()=>{},profile:()=>{},defaultCampStyleForFighter:()=> 'balanced',contractTermsLegacy:()=>({purse:1500}),topLeagueEligible:()=>true,matchmake:()=>{}};
           }
           const baseWorld = [
             {id:'a1',name:'ACA Opponent',country:'RU',weight:'Lightweight',style:'Wrestler',wins:4,losses:1,draws:0,ovr:69,org:'ACA',agencyManaged:false,retired:false,injury:null,nextFight:null},
