@@ -10,27 +10,38 @@
     if(!st)return null;
     return [...(st.fighters||[]),...(st.world||[])].find(f=>f&&f.id===id)||null;
   }
+  function invalidOrg(v){
+    if(!v)return true;
+    const x=String(v).trim().toLowerCase();
+    return !x||x==='свободный агент'||x==='свободный агент.'||x==='free agent'||x==='free agents';
+  }
+  function assignOrg(f){
+    if(!f)return false;
+    if(f.contract?.org && invalidOrg(f.org)){
+      f.org=f.contract.org;
+      f.orgLevel=Number(f.orgLevel||0)||6;
+      return true;
+    }
+    if(!invalidOrg(f.org))return false;
+    try{
+      if(typeof randomWorldOrg==='function'){
+        const o=randomWorldOrg(f);
+        if(o?.name){f.org=o.name;f.orgLevel=Number(o.level||6);return true;}
+      }
+    }catch(e){}
+    const r=Number(f.rating||0);
+    const pool=r>=82?['UFC','PFL','ONE Championship','RIZIN','ACA']:r>=76?['RIZIN','ACA','KSW','LFA','ONE Championship']:r>=68?['LFA','KSW','ACA','Cage Warriors','Ares FC']:['Cage Warriors','Ares FC','BRAVE CF'];
+    f.org=pool[Math.floor(Math.random()*pool.length)];
+    f.orgLevel=Number(f.orgLevel||0)||6;
+    return true;
+  }
   function migrateWorldOrganizations(){
     const st=state();
     if(!st||!Array.isArray(st.world))return false;
     let changed=false;
     for(const f of st.world){
       if(!f||f.retired)continue;
-      if(!f.org){
-        try{
-          if(typeof randomWorldOrg==='function'){
-            const o=randomWorldOrg(f);
-            if(o?.name)f.org=o.name;
-          }
-        }catch(e){}
-        if(!f.org){
-          const r=Number(f.rating||0);
-          const pool=r>=78?['ACA','RIZIN','ONE Championship','PFL']:r>=70?['LFA','KSW','ACA','Cage Warriors']:['Cage Warriors','Ares FC','BRAVE CF'];
-          f.org=pool[Math.floor(Math.random()*pool.length)];
-        }
-        f.orgLevel=Number(f.orgLevel||0)||Number((typeof ORGS!=='undefined'?ORGS.find(x=>x.name===f.org)?.level:0)||6);
-        changed=true;
-      }
+      if(assignOrg(f))changed=true;
     }
     if(changed)saveSafe();
     return changed;
@@ -72,7 +83,12 @@
     .rank-contract{display:inline-flex!important;margin:6px 0 0 5px!important;padding:4px 7px!important;border-radius:6px!important;background:rgba(72,165,109,.12)!important;border:1px solid rgba(72,165,109,.3)!important;color:#78d39a!important;font-size:9px!important;font-weight:900!important;vertical-align:middle!important;}
     .rank-profile-v76{min-width:100px!important;width:100px!important;min-height:44px!important;padding:9px 10px!important;white-space:nowrap!important;flex:none!important;}
     .rank-score-v76{min-width:34px!important;text-align:center!important;}
-    @media(max-width:520px){.rankline-v76{grid-template-columns:30px minmax(0,1fr) auto!important;}.rank-profile-v76{grid-column:2/-1!important;width:100%!important;min-width:0!important;margin-top:4px!important;}.rank-score-v76{grid-column:3!important;grid-row:1!important;}.rank-fighter-main{grid-column:2!important;grid-row:1!important;}}
+    @media(max-width:520px){
+      .rankline-v76{grid-template-columns:30px minmax(0,1fr) auto!important;}
+      .rank-profile-v76{grid-column:2/-1!important;width:100%!important;min-width:0!important;margin-top:4px!important;}
+      .rank-score-v76{grid-column:3!important;grid-row:1!important;}
+      .rank-fighter-main{grid-column:2!important;grid-row:1!important;}
+    }
   `;
   document.head.appendChild(style);
 
