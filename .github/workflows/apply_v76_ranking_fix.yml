@@ -1,0 +1,42 @@
+name: Apply V76 ranking fix
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "scripts/ranking_contracts_v76.js"
+      - ".github/workflows/apply_v76_ranking_fix.yml"
+permissions:
+  contents: write
+jobs:
+  patch-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Attach V76 script to index
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          text=p.read_text(encoding='utf-8')
+          marker='<!-- MMA_MANAGER_V76_RANKING_REPAIR -->'
+          if marker not in text:
+              tag='\n'+marker+'\n<script src="scripts/ranking_contracts_v76.js?v=76"></script>\n'
+              if '</body>' not in text:
+                  raise SystemExit('index.html has no </body> marker')
+              text=text.replace('</body>',tag+'</body>',1)
+              p.write_text(text,encoding='utf-8')
+          PY
+      - name: Commit patched index
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No index changes needed"
+            exit 0
+          fi
+          git commit -m "Apply V76 ranking repair [skip ci]"
+          git push
