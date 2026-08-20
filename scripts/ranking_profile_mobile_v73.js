@@ -1,49 +1,39 @@
-/* MMA Manager V73 — isolated ranking/profile fix
-   Does not replace existing ranking or profile logic. It only repairs
-   the click target for ranking rows/champions and widens profile buttons.
-*/
+/* MMA Manager ranking/profile repair — loaded as an isolated patch. */
 (function(){
   'use strict';
-  const STYLE_ID='mma-ranking-profile-mobile-v73-style';
-  if(!document.getElementById(STYLE_ID)){
-    const s=document.createElement('style'); s.id=STYLE_ID;
-    s.textContent=`
-      .ranking-profile-btn,.ranking .profile-btn,[data-action="profile"]{
-        min-width:96px !important;width:auto !important;padding-left:16px !important;padding-right:16px !important;
-        min-height:44px !important;white-space:nowrap !important;
-      }
-      .ranking-champion .ranking-profile-btn,.ranking-row .ranking-profile-btn{min-width:96px !important;}
-    `;
-    document.head.appendChild(s);
+  if(window.__MMA_RANKING_PROFILE_REPAIR)return;
+  window.__MMA_RANKING_PROFILE_REPAIR=true;
+
+  function state(){return window.s||window.state||window.gameState||null}
+  function fighters(){
+    const s=state();
+    return [s&&s.fighters,s&&s.world,window.fighters,window.world].find(Array.isArray)||[];
   }
-  function findFighter(id){
-    if(!id) return null;
-    const s=window.s||window.state||window.gameState;
-    const pools=[s&&s.fighters,window.fighters,s&&s.world];
-    for(const p of pools){
-      if(Array.isArray(p)){const f=p.find(x=>String(x.id)===String(id));if(f)return f;}
+  function find(id){return fighters().find(f=>f&&String(f.id)===String(id))||null}
+  function open(f){
+    if(!f)return false;
+    for(const n of ['profile','showFighterProfile','openFighterProfile','fighterProfile','viewFighterProfile']){
+      if(typeof window[n]!=='function')continue;
+      try{window[n](f);return true}catch(e){}
+      try{window[n](f.id);return true}catch(e){}
     }
-    return null;
-  }
-  function openProfile(id){
-    const f=findFighter(id); if(!f)return false;
-    const candidates=['profile','showFighterProfile','openFighterProfile','fighterProfile','viewFighterProfile'];
-    for(const n of candidates){
-      if(typeof window[n]==='function'){
-        try{window[n](f);return true;}catch(e){try{window[n](f.id);return true;}catch(_){}}
-      }
-    }
-    try{ if(typeof window.profile==='function'){window.profile(f);return true;} }catch(e){}
     return false;
   }
+  function id(el){
+    return el?.dataset?.fighterId||el?.dataset?.profileId||el?.dataset?.fighter||el?.getAttribute?.('data-fighter-id')||el?.getAttribute?.('data-profile-id')||el?.getAttribute?.('data-fighter');
+  }
+  function style(){
+    if(document.getElementById('mma-ranking-profile-repair-style'))return;
+    const s=document.createElement('style');s.id='mma-ranking-profile-repair-style';
+    s.textContent='.ranking-profile-btn,.ranking .profile-btn,[data-action="profile"],button[onclick*="profile"]{min-width:110px!important;width:auto!important;min-height:44px!important;padding:10px 18px!important;white-space:nowrap!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}';
+    document.head.appendChild(s);
+  }
+  style();
   document.addEventListener('click',function(e){
-    const el=e.target.closest && e.target.closest('[data-fighter-id],[data-profile-id],.ranking-profile-btn,.ranking .profile-btn');
+    const el=e.target.closest?.('[data-fighter-id],[data-profile-id],[data-fighter],.ranking-profile-btn,.ranking .profile-btn');
     if(!el)return;
-    const id=el.dataset.fighterId||el.dataset.profileId||el.getAttribute('data-fighter');
-    if(!id)return;
-    const f=findFighter(id);
-    if(!f)return;
-    const ok=openProfile(id);
-    if(ok)e.preventDefault();
+    const f=find(id(el));
+    if(f&&open(f)){e.preventDefault();e.stopImmediatePropagation();}
   },true);
+  new MutationObserver(style).observe(document.documentElement,{childList:true,subtree:true});
 })();
