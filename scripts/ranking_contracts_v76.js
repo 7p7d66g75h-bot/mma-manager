@@ -104,4 +104,82 @@
     }
   });
   observer.observe(document.body,{childList:true,subtree:true});
+
+  /* V80 — restore the original button/navigation behaviour.
+     The visual ranking patch must never replace or swallow existing controls.
+     Only bind a fallback when the original handler is absent. */
+  function fallbackClick(e){
+    const t=e.target?.closest?.('button,[role="button"]');
+    if(!t)return;
+
+    if(t.matches('[data-profile-rank-btn]')){
+      const id=t.getAttribute('data-profile-rank-btn');
+      const f=findFighter(id);
+      if(!f)return;
+      e.preventDefault();
+      e.stopPropagation();
+      try{if(typeof profile==='function')profile(f,'rankings')}catch(err){console.error('V80 profile',err)}
+      return;
+    }
+
+    if(t.matches('[data-page]') && typeof page==='function'){
+      e.preventDefault();e.stopPropagation();
+      page(t.getAttribute('data-page'));
+      return;
+    }
+
+    if(t.matches('[data-rankleague]') && typeof rankings==='function'){
+      e.preventDefault();e.stopPropagation();
+      const st=state();
+      if(st){st.rankLeague=t.getAttribute('data-rankleague');st.rankSection='rankings';saveSafe();}
+      rankings();
+      return;
+    }
+
+    if(t.matches('[data-ranksection]') && typeof rankings==='function'){
+      e.preventDefault();e.stopPropagation();
+      const st=state();
+      if(st){st.rankSection=t.getAttribute('data-ranksection');saveSafe();}
+      rankings();
+      return;
+    }
+
+    if(t.matches('[data-league-rank]') && typeof rankings==='function'){
+      e.preventDefault();e.stopPropagation();
+      const st=state();
+      if(st){st.rankLeague=t.getAttribute('data-league-rank');st.rankSection='rankings';saveSafe();}
+      rankings();
+      return;
+    }
+
+    if(t.matches('[data-league-roster]') && typeof page==='function'){
+      e.preventDefault();e.stopPropagation();
+      page('roster');
+      return;
+    }
+  }
+
+  /* Window capture runs before document-level capture handlers from older patches. */
+  window.addEventListener('click',fallbackClick,true);
+  window.addEventListener('pointerup',function(e){
+    const t=e.target?.closest?.('[data-profile-rank-btn]');
+    if(!t)return;
+    /* Do not double-fire if the click path already handled it. */
+    if(t.dataset.v80Handled==='1'){delete t.dataset.v80Handled;return;}
+    t.dataset.v80Handled='1';
+    const f=findFighter(t.getAttribute('data-profile-rank-btn'));
+    if(f){e.preventDefault();e.stopPropagation();try{profile(f,'rankings')}catch(_){} }
+  },true);
+
+  /* Remove only the dangerous ranking visual wrapper styles from V78 if it exists.
+     We keep the new visual styling itself, but ensure no ranking element can become
+     a click-blocking overlay. */
+  const safety=document.createElement('style');
+  safety.id='mma-manager-v80-button-safety';
+  safety.textContent=`
+    .mm-rank-shell,.mm-rank-org-banner,.mm-rank-champion,.mm-rank-section-title{pointer-events:auto!important;}
+    .mm-rank-shell button,.mm-rank-shell [role="button"]{pointer-events:auto!important;touch-action:manipulation!important;}
+    .rank-profile-v76{position:relative!important;z-index:5!important;pointer-events:auto!important;touch-action:manipulation!important;}
+  `;
+  document.head.appendChild(safety);
 })();
