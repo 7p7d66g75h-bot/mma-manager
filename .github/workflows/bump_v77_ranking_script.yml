@@ -1,0 +1,31 @@
+name: Bump V77 ranking script
+on:
+  push:
+    branches: ["main"]
+    paths: ["scripts/ranking_contracts_v76.js", ".github/workflows/bump_v77_ranking_script.yml"]
+permissions:
+  contents: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update script cache key
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          t=p.read_text(encoding='utf-8')
+          old='scripts/ranking_contracts_v76.js?v=76'
+          new='scripts/ranking_contracts_v76.js?v=77'
+          if old in t:
+              p.write_text(t.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Bump ranking repair cache key to V77 [skip ci]"
+          git push
